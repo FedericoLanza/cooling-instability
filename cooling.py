@@ -21,6 +21,7 @@ parser.add_argument('beta', type=float, help='Value for viscosity ratio')
 parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
 parser.add_argument('Ly', type=float, help='Value for wavelength')
 parser.add_argument('Lx', type=float, help='Value for system size')
+parser.add_argument('--rnd',action='store_true', help='Flag for random velocity inlet')
 
 # Parse the command-line arguments
 args = parser.parse_args()
@@ -63,19 +64,29 @@ if __name__ == "__main__":
     
     Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
     Ny = 100 # number of tiles along y ( = Number of divisions along the y-axis)
-
+    
+    # Global parameters
     Pe = args.Pe # Peclet number
     Gamma = args.Gamma # Heat transfer ratio
     beta = args.beta # Viscosity ratio ( nu(T) = beta^(-T) )
     
+    # Inlet parameters
     ueps = args.ueps # amplitude of the perturbation
     u0 = 1.0 # base inlet velocity
+    
+    # Base state parameters
     Deff = 1./Pe + 2*Pe*u0*u0/105 # effective constant diffusion for the base state
     lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / 2*Deff # decay constant for the base state
+    
+    # Flags
+    rnd = args.rnd
+    #print(rnd)
+    impulse = False
 
     dt = 0.005 # time interval
     t = 0. # starting time
-    t_end = 30.01 # final time
+    t_impulse = 1.0 # impulse time
+    t_end = 20.01 # final time
     dump_intv = 10 # saving interval
 
     rtol = 1e-10 # tolerance for solving linear problem
@@ -151,13 +162,17 @@ if __name__ == "__main__":
     p_ = dfx.fem.Function(mpc_p.function_space, name="p") # pressure (before: p = dfx.fem.Function(S, name="p"))
     u_ = - mob_ * ufl.grad(p_) # velocity
 
-    # ux0 = u0 + ueps*ufl.sin(2*ufl.pi*x[1]/Ly) # velocity at inlet (before: u0 = ufl.as_vector((1.0 + 1.0*ufl.sin(2*ufl.pi*x[1]), 0.)))
     ux0 = dfx.fem.Function(mpc_p.function_space, name="ux0")
-    ux0.x.array[:] = 1.0 + ueps*np.random.randn()
+    if rnd is False:
+        ux0 = u0 + ueps*ufl.sin(2*ufl.pi*x[1]/Ly) # velocity at inlet (before: u0 = ufl.as_vector((1.0 + 1.0*ufl.sin(2*ufl.pi*x[1]), 0.)))
+    else:
+        ux0.x.array[:] = u0 + ueps*np.random.randn()
     
-    # Problem for p (nabla u = nabla ( -(k/mu(T)) nabla P) = 0)
+    ux0_2 = dfx.fem.Function(mpc_p.function_space, name="ux0_2")
+    ux0_2.x.array[:] = u0
+    
+    # Problem for p (nabla u = nabla ( -(k/mu(T)) nabla P) = 0, u = ux0 at x = 0)
     F_p = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0 * b * ds(1)
-    
     a_p = ufl.lhs(F_p)
     L_p = ufl.rhs(F_p)
     
@@ -166,6 +181,15 @@ if __name__ == "__main__":
                                              "pc_hypre_boomeramg_max_iter": 1, "pc_hypre_boomeramg_cycle_type": "v",
                                              "pc_hypre_boomeramg_print_statistics": 0})
     
+    # Problem for p after perturbation (nabla u = nabla ( -(k/mu(T)) nabla P) = 0, u = ux0_2 at x = 0)
+    F_p2 = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0_2 * b * ds(1)
+    a_p2 = ufl.lhs(F_p2)
+    L_p2 = ufl.rhs(F_p2)
+    
+    problem_p2 = LinearProblem(a_p2, L_p2, mpc_p, u=p_, bcs=bcs_p,
+                              petsc_options={"ksp_type": "cg", "ksp_rtol": rtol, "pc_type": "hypre", "pc_hypre_type": "boomeramg",
+                                             "pc_hypre_boomeramg_max_iter": 1, "pc_hypre_boomeramg_cycle_type": "v",
+                                             "pc_hypre_boomeramg_print_statistics": 0})
     # Problem for T
     F_T = (T - T_n)*b/dt * ufl.dx # dT/dt
     F_T += ufl.dot(u_, ufl.grad(T)) * b * ufl.dx # u \cdot \nabla T
@@ -188,7 +212,7 @@ if __name__ == "__main__":
     problem_u = LinearProblem(a_u, L_u, mpc_u, bcs=[])
     
     # Prepare files for saving
-    out_dir = f"results/Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_random/" # directoty for output
+    out_dir = f"results/Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
     xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")
@@ -198,12 +222,19 @@ if __name__ == "__main__":
     xdmff_u.write_mesh(mesh)
 
     it = 0 # iterative step
+    
     while t < t_end:
         if mpi_rank == 0:
             print(f"it={it} t={t}")
         
         # Solve problem for p
-        p_h = problem_p.solve()
+        if impulse is False:
+            p_h = problem_p.solve()
+        else:
+            if t < t_impulse:
+                p_h = problem_p.solve()
+            else:
+                p_h = problem_p2.solve()
         
         # Update p (u will update consequently)
         p_.x.array[:] = p_h.x.array[:]
@@ -227,7 +258,9 @@ if __name__ == "__main__":
 
         t += dt
         it += 1
-
+        
+    else:
+        
     xdmff_T.close()
     xdmff_p.close()
     xdmff_u.close()

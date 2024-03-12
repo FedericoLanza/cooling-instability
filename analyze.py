@@ -1,5 +1,6 @@
 import argparse
 import os
+import math
 import meshio
 from utils import parse_xdmf
 import h5py
@@ -8,20 +9,56 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib import tri
 
+#def parse_args():
+#    parser = argparse.ArgumentParser(description="")
+#    parser.add_argument("folder", type=str, help="Folder") # positional argument: expects a string input (path to folder)
+#    parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
+#    parser.add_argument("--video", action="store_true", help="Video") # optional argument: typing --video enables the "video" feature
+#    return parser.parse_args()
+
 def parse_args():
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument("folder", type=str, help="Folder") # positional argument: expects a string input (path to folder)
+    parser = argparse.ArgumentParser(description='Process some parameters.')
+    parser.add_argument('Pe', type=float, help='Value for Peclet number')
+    parser.add_argument('Gamma', type=float, help='Value for heat transfer ratio')
+    parser.add_argument('beta', type=float, help='Value for viscosity ratio')
+    parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
+    parser.add_argument('Ly', type=float, help='Value for wavelength')
+    parser.add_argument('Lx', type=float, help='Value for system size')
+    parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
     parser.add_argument("--video", action="store_true", help="Video") # optional argument: typing --video enables the "video" feature
     return parser.parse_args()
 
 if __name__ == "__main__":
 
-    # create paths to the targeted files
-    args = parse_args() # object containing the values of the parsed argument (folder path and optional '--show' flag)
-    Tfile = os.path.join(args.folder, "T.xdmf")
-    ufile = os.path.join(args.folder, "u.xdmf")
-    pfile = os.path.join(args.folder, "p.xdmf")
+    # Parse the command-line arguments
+    args = parse_args() # object containing the values of the parsed argument
+    
+    Lx = args.Lx # x-lenght of domain (system size)
+    Ly = args.Ly # y-lenght of domain (wavelength)
+    
+    # global parameters
+    Pe = args.Pe # Peclet number
+    Gamma = args.Gamma # Heat transfer ratio
+    beta = args.beta # Viscosity ratio ( nu(T) = beta^(-T) )
+    
+    # inlet parameters
+    ueps = args.ueps # amplitude of the perturbation
+    u0 = 1.0 # base inlet velocity
+    
+    # base state parameters
+    Deff = 1./Pe + 2*Pe*u0*u0/105 # effective constant diffusion for the base state
+    lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / 2*Deff # decay constant for the base state
+    
+    # flags
+    rnd = args.rnd
+    
+    out_dir = f"results/Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}" # directoty for output
+    
+    # Create paths to the targeted files
+    Tfile = os.path.join(out_dir, "T.xdmf")
+    ufile = os.path.join(out_dir, "u.xdmf")
+    pfile = os.path.join(out_dir, "p.xdmf")
 
     dsets_T, topology_address, geometry_address = parse_xdmf(Tfile, get_mesh_address=True) # extracts data from T.xdmf file
     dsets_T = dict(dsets_T) # converts data of T in a standard dictionary
@@ -95,7 +132,7 @@ if __name__ == "__main__":
         ax[1].set_ylabel("$u_x$")
         ax[0].legend()
         [axi.set_xlabel("$y$") for axi in ax]
-        fig.savefig(args.folder + '/fx.png', dpi=300)
+        fig.savefig(out_dir + '/fx.png', dpi=300)
         
         # Plot T and u_x along x for fixed y
         fig2, ax2 = plt.subplots(1, 2, figsize=(12, 4))
@@ -106,7 +143,7 @@ if __name__ == "__main__":
         ax2[1].set_ylabel("$u_x$")
         ax2[0].legend()
         [axi.set_xlabel("$x$") for axi in ax2]
-        fig2.savefig(args.folder + '/fy.png', dpi=300)
+        fig2.savefig(out_dir + '/fy.png', dpi=300)
         
         # Plot max of T and u_x along x for fixed y
         fig3, ax3 = plt.subplots(1, 2, figsize=(12, 4))
@@ -115,7 +152,7 @@ if __name__ == "__main__":
         ax3[0].set_ylabel("$T_{max}(x)$")
         ax3[1].set_ylabel("$u_{x,max}(x)$")
         [axi.set_xlabel("$x$") for axi in ax3]
-        fig3.savefig(args.folder + '/maxfy.png', dpi=300)
+        fig3.savefig(out_dir + '/maxfy.png', dpi=300)
         
         # plt.show()
         
@@ -133,18 +170,18 @@ if __name__ == "__main__":
             axT.set_title(f"t = {t:1.2f}")
         num_frames = 10
         animation = FuncAnimation(figT, update, frames=num_frames, blit=False)
-        animation.save(args.folder + 'evolving_colormap.mp4', fps=2, extra_args=['-vcodec', 'libx264'])
+        animation.save(out_dir + '/evolving_colormap.mp4', fps=2, extra_args=['-vcodec', 'libx264'])
     
     plt.close()
     
     #exit(0)
     
-    Tvideo_folder = os.path.join(args.folder, "T")
-    uvideo_folder = os.path.join(args.folder, "u")
-    if not os.path.exists(Tvideo_folder):
-        os.makedirs(Tvideo_folder)
-    if not os.path.exists(uvideo_folder):
-        os.makedirs(uvideo_folder)
+    #Tvideo_folder = os.path.join(args.folder, "T")
+    #uvideo_folder = os.path.join(args.folder, "u")
+    #if not os.path.exists(Tvideo_folder):
+    #    os.makedirs(Tvideo_folder)
+    #if not os.path.exists(uvideo_folder):
+    #    os.makedirs(uvideo_folder)
         
     for it in it_:
         t = t_[it] # time at step it
@@ -163,7 +200,7 @@ if __name__ == "__main__":
         axT.set_aspect("equal")
         figT.set_tight_layout(True)
         if (args.show and it == it_[-1]):
-            figT.savefig(args.folder + '/Tlevelmap.png', dpi=300)
+            figT.savefig(out_dir + '/Tlevelmap.png', dpi=300)
             plt.show()
         #if (args.show): # if you type "--show" on the command line
         #    axT.set_title(f"t = {t:1.2f}")
@@ -179,7 +216,7 @@ if __name__ == "__main__":
             [axi.set_xlabel("$x$") for axi in axu]
             [axi.set_ylabel("$y$") for axi in axu]
             figu.suptitle(f"t = {t:1.2f}")
-            figu.savefig(uvideo_folder + f'/umap.jpg', dpi=300)
+            figu.savefig(out_dir + f'/umap.jpg', dpi=300)
             plt.close()
             
         paths = [] # curves formed by each level
@@ -193,16 +230,29 @@ if __name__ == "__main__":
             xmin[level][it] = verts[:, 0].min() # min x-position of a level
 
         umax[it] = np.linalg.norm(u_, axis=0).max() # max of |u| at step it
-
+    
+    figu, axu = plt.subplots(1, 1)
+    axu.plot(t_[1:], umax[1:]) # plot u_max vs t
+    axu.set_xlabel("$t$")
+    axu.set_ylabel("$u_{max}$")
+    figu.savefig(out_dir + f'/umax.jpg', dpi=300)
+    
     figf, axf = plt.subplots(1, 5, figsize=(30, 3))
     figf.subplots_adjust(wspace=0.3)
+    
     for level in levels[1:-1]:
+        xbase = -lambda_*math.log(level)
         #axf[0].plot(t_, xmax[level], label=f"$T={level:1.2f}$") # plot xmax vs t for each level
         axf[0].plot(t_, xmax[level]) # plot xmax vs t for each level
         axf[1].plot(t_, xmin[level]) # plot xmin vs t for each level
-        axf[2].plot(t_[:len(it_)], xmax[level][:len(it_)] - xmin[level][:len(it_)]) # plot span vs t for each level
-        axf[3].plot(t_[:len(it_)], xmax[level][:len(it_)] - xmin[level][:len(it_)]) # plot span vs t for each level
-
+        axf[2].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]) ) # plot span vs t for each level
+        axf[3].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]) ) # plot span vs t for each level
+        axf[4].plot(t_[1:len(it_)], (xmax[level][1:len(it_)]/xmin[level][1:len(it_)]), label=f"$T={level:1.2f}$") # plot span vs t for each level
+        xspan_data =  np.column_stack(( t_[1:len(it_)], xmax[level][1:len(it_)] - xmin[level][1:len(it_)] ))
+        np.savetxt(out_dir + f'/xspan_T={level:1.2f}.txt', xspan_data, fmt='%1.12f')
+        xratio_data = np.column_stack(( t_[1:len(it_)], xmax[level][1:len(it_)]/xmin[level][1:len(it_)] ))
+        np.savetxt(out_dir + f'/xratio_T={level:1.2f}.txt', xratio_data, fmt='%1.12f')
+        
     axf[0].legend()
     [axi.set_xlabel("$t$") for axi in ax]
     axf[0].set_ylabel("$x_{max}$")
@@ -211,7 +261,7 @@ if __name__ == "__main__":
     axf[2].semilogy()
     axf[3].set_xscale('log')
     axf[3].set_yscale('log')
-    axf[4].plot(t_[1:], umax[1:])
-    axf[4].set_ylabel("$u_{max}$")
-    figf.savefig(args.folder + '/fingergrowth.png', dpi=300)
+    axf[4].set_ylabel("$x_{max}/x_{min}$")
+    axf[4].semilogy()
+    figf.savefig(out_dir + '/fingergrowth.png', dpi=300)
     plt.show()

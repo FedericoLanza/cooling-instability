@@ -21,7 +21,8 @@ parser.add_argument('beta', type=float, help='Value for viscosity ratio')
 parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
 parser.add_argument('Ly', type=float, help='Value for wavelength')
 parser.add_argument('Lx', type=float, help='Value for system size')
-parser.add_argument('--rnd',action='store_true', help='Flag for random velocity inlet')
+parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
+parser.add_argument('--impulse',action='store_true', help='Flag for impulse perturbation')
 
 # Parse the command-line arguments
 args = parser.parse_args()
@@ -62,8 +63,9 @@ start_time = time.time()
 
 if __name__ == "__main__":
     
-    Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
-    Ny = 100 # number of tiles along y ( = Number of divisions along the y-axis)
+    Nx = 200 # number of tiles along x ( = Number of divisions along the x-axis)
+    Ny = 200 # number of tiles along y ( = Number of divisions along the y-axis)
+    
     
     # Global parameters
     Pe = args.Pe # Peclet number
@@ -80,13 +82,12 @@ if __name__ == "__main__":
     
     # Flags
     rnd = args.rnd
-    #print(rnd)
-    impulse = False
+    impulse = args.impulse
 
     dt = 0.005 # time interval
     t = 0. # starting time
     t_impulse = 1.0 # impulse time
-    t_end = 20.01 # final time
+    t_end = 40.01 # final time
     dump_intv = 10 # saving interval
 
     rtol = 1e-10 # tolerance for solving linear problem
@@ -161,13 +162,15 @@ if __name__ == "__main__":
 
     p_ = dfx.fem.Function(mpc_p.function_space, name="p") # pressure (before: p = dfx.fem.Function(S, name="p"))
     u_ = - mob_ * ufl.grad(p_) # velocity
-
+    
+    # velocity at inlet with perturbation
     ux0 = dfx.fem.Function(mpc_p.function_space, name="ux0")
     if rnd is False:
         ux0 = u0 + ueps*ufl.sin(2*ufl.pi*x[1]/Ly) # velocity at inlet (before: u0 = ufl.as_vector((1.0 + 1.0*ufl.sin(2*ufl.pi*x[1]), 0.)))
     else:
         ux0.x.array[:] = u0 + ueps*np.random.randn()
     
+    # velocity at inlet without perturbation
     ux0_2 = dfx.fem.Function(mpc_p.function_space, name="ux0_2")
     ux0_2.x.array[:] = u0
     
@@ -258,8 +261,6 @@ if __name__ == "__main__":
 
         t += dt
         it += 1
-        
-    else:
         
     xdmff_T.close()
     xdmff_p.close()

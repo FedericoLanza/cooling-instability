@@ -9,13 +9,6 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib import tri
 
-#def parse_args():
-#    parser = argparse.ArgumentParser(description="")
-#    parser.add_argument("folder", type=str, help="Folder") # positional argument: expects a string input (path to folder)
-#    parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
-#    parser.add_argument("--video", action="store_true", help="Video") # optional argument: typing --video enables the "video" feature
-#    return parser.parse_args()
-
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
     parser.add_argument('Pe', type=float, help='Value for Peclet number')
@@ -25,7 +18,8 @@ def parse_args():
     parser.add_argument('Ly', type=float, help='Value for wavelength')
     parser.add_argument('Lx', type=float, help='Value for system size')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
-    parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
+    parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
+    # parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
     parser.add_argument("--video", action="store_true", help="Video") # optional argument: typing --video enables the "video" feature
     return parser.parse_args()
 
@@ -52,8 +46,18 @@ if __name__ == "__main__":
     
     # flags
     rnd = args.rnd
+    holdpert = args.holdpert
     
-    out_dir = f"results/Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}" # directoty for output
+    Pe_str = f"Pe_{Pe:.10g}"
+    Gamma_str = f"Gamma_{Gamma:.10g}"
+    beta_str = f"beta_{beta:.10g}"
+    ueps_str = f"ueps_{ueps:.10g}"
+    Ly_str = f"Ly_{Ly:.10g}"
+    Lx_str = f"Lx_{Lx:.10g}"
+    rnd_str = f"rnd_{rnd}"
+    holdpert_str = f"holdpert_{holdpert}"
+    
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -124,15 +128,15 @@ if __name__ == "__main__":
         ux_max_ = ux_vals_.max(axis=0) # max of u_x along y at fixed t
 
         # Plot T and u_x along y for fixed x
-        fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+        fig1, ax1 = plt.subplots(1, 2, figsize=(12, 4))
         for i in range(Nx)[::10]:
-            ax[0].plot(y, T_vals_[:, i], label=f"$x={x[i]:1.2f}$") # plot T(y) for different x
-            ax[1].plot(y, ux_vals_[:, i]) # plot u_x(y) for different x
-        ax[0].set_ylabel("$T$")
-        ax[1].set_ylabel("$u_x$")
-        ax[0].legend()
-        [axi.set_xlabel("$y$") for axi in ax]
-        fig.savefig(out_dir + '/fx.png', dpi=300)
+            ax1[0].plot(y, T_vals_[:, i], label=f"$x={x[i]:1.2f}$") # plot T(y) for different x
+            ax1[1].plot(y, ux_vals_[:, i]) # plot u_x(y) for different x
+        ax1[0].set_ylabel("$T$")
+        ax1[1].set_ylabel("$u_x$")
+        ax1[0].legend()
+        [axi.set_xlabel("$y$") for axi in ax1]
+        fig1.savefig(out_dir + '/fx.png', dpi=300)
         
         # Plot T and u_x along x for fixed y
         fig2, ax2 = plt.subplots(1, 2, figsize=(12, 4))
@@ -154,39 +158,15 @@ if __name__ == "__main__":
         [axi.set_xlabel("$x$") for axi in ax3]
         fig3.savefig(out_dir + '/maxfy.png', dpi=300)
         
-        # plt.show()
-        
-        #exit(0)
+        plt.show()
+        plt.close()
+    
     # Analyze evolution
-    if (args.show):
-        figT, axT = plt.subplots(1, 1)
-        def update(frame):
-            t = t_[frame]  # time at step it
-            print(f"it={frame} t={t}")
-            dset = dsets_T[t]  # T-dictionary at time t
-            with h5py.File(dset[0], "r") as h5f:
-                T_[:] = h5f[dset[1]][:, 0]  # takes values of T from the T-dictionary
-            axT.tripcolor(triang, T_) # plot of colormap of T
-            axT.set_title(f"t = {t:1.2f}")
-        num_frames = 10
-        animation = FuncAnimation(figT, update, frames=num_frames, blit=False)
-        animation.save(out_dir + '/evolving_colormap.mp4', fps=2, extra_args=['-vcodec', 'libx264'])
-    
-    plt.close()
-    
-    #exit(0)
-    
-    #Tvideo_folder = os.path.join(args.folder, "T")
-    #uvideo_folder = os.path.join(args.folder, "u")
-    #if not os.path.exists(Tvideo_folder):
-    #    os.makedirs(Tvideo_folder)
-    #if not os.path.exists(uvideo_folder):
-    #    os.makedirs(uvideo_folder)
-        
     for it in it_:
         t = t_[it] # time at step it
         print(f"it={it} t={t}")
 
+        # Load data
         dset = dsets_T[t] # T-dictionary at time t
         with h5py.File(dset[0], "r") as h5f:
             T_[:] = h5f[dset[1]][:, 0] # takes values of T from the T-dictionary
@@ -194,20 +174,21 @@ if __name__ == "__main__":
         with h5py.File(dsets_u[t][0], "r") as h5f:
             u_[:, :] = h5f[dsets_u[t][1]][:, :2] # takes values of u from the T-dictionary
 
+        # Plot colormaps of T at final state
         figT, axT = plt.subplots(1, 1)
         axT.tripcolor(triang, T_) # plot of colormap of T
         cs = axT.tricontour(triang, T_, colors="k", levels=levels) # plot of different levels on the colormap
         axT.set_aspect("equal")
+        axT.set_xlabel("$x$")
+        axT.set_ylabel("$y$")
         figT.set_tight_layout(True)
-        if (args.show and it == it_[-1]):
+        if (it == it_[-1]):
             figT.savefig(out_dir + '/Tlevelmap.png', dpi=300)
             plt.show()
-        #if (args.show): # if you type "--show" on the command line
-        #    axT.set_title(f"t = {t:1.2f}")
-        #    figT.savefig(Tvideo_folder + f"/T_{it}.jpg", dpi=300)
         plt.close()
             
-        if (args.show and it == it_[-1]): # if you type "--show" on the command line
+        # Plot colormaps of ux and uy at final state
+        if (it == it_[-1]):
             figu, axu = plt.subplots(1, 2, figsize=(9, 3))
             axu[0].tripcolor(triang, u_[:, 0]) # plot colormap of u_x
             axu[1].tripcolor(triang, u_[:, 1]) # plot colormap of u_y
@@ -231,30 +212,36 @@ if __name__ == "__main__":
 
         umax[it] = np.linalg.norm(u_, axis=0).max() # max of |u| at step it
     
+    # Plot umax vs t (and save in file .txt)
     figu, axu = plt.subplots(1, 1)
     axu.plot(t_[1:], umax[1:]) # plot u_max vs t
     axu.set_xlabel("$t$")
     axu.set_ylabel("$u_{max}$")
     figu.savefig(out_dir + f'/umax.jpg', dpi=300)
     
+    umax_data =  np.column_stack(( t_[1:], umax[1:] ))
+    np.savetxt(out_dir + f'/umax.txt', umax_data, fmt='%1.9f')
+    
     figf, axf = plt.subplots(1, 5, figsize=(30, 3))
     figf.subplots_adjust(wspace=0.3)
     
+    # Plot xmax, xmin, xspan, xratio vs t (and save in file .txt)
     for level in levels[1:-1]:
-        xbase = -lambda_*math.log(level)
+        xbase = -lambda_ * math.log(level)
         #axf[0].plot(t_, xmax[level], label=f"$T={level:1.2f}$") # plot xmax vs t for each level
         axf[0].plot(t_, xmax[level]) # plot xmax vs t for each level
         axf[1].plot(t_, xmin[level]) # plot xmin vs t for each level
         axf[2].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]) ) # plot span vs t for each level
         axf[3].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]) ) # plot span vs t for each level
         axf[4].plot(t_[1:len(it_)], (xmax[level][1:len(it_)]/xmin[level][1:len(it_)]), label=f"$T={level:1.2f}$") # plot span vs t for each level
+        
         xspan_data =  np.column_stack(( t_[1:len(it_)], xmax[level][1:len(it_)] - xmin[level][1:len(it_)] ))
-        np.savetxt(out_dir + f'/xspan_T={level:1.2f}.txt', xspan_data, fmt='%1.12f')
+        np.savetxt(out_dir + f'/xspan_T={level:1.2f}.txt', xspan_data, fmt='%1.9f')
         xratio_data = np.column_stack(( t_[1:len(it_)], xmax[level][1:len(it_)]/xmin[level][1:len(it_)] ))
-        np.savetxt(out_dir + f'/xratio_T={level:1.2f}.txt', xratio_data, fmt='%1.12f')
+        np.savetxt(out_dir + f'/xratio_T={level:1.2f}.txt', xratio_data, fmt='%1.9f')
         
     axf[0].legend()
-    [axi.set_xlabel("$t$") for axi in ax]
+    [axi.set_xlabel("$t$") for axi in axf]
     axf[0].set_ylabel("$x_{max}$")
     axf[1].set_ylabel("$x_{min}$")
     axf[2].set_ylabel("$x_{max}-x_{min}$")

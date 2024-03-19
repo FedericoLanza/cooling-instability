@@ -22,7 +22,7 @@ parser.add_argument('ueps', type=float, help='Value for amplitude of the perturb
 parser.add_argument('Ly', type=float, help='Value for wavelength')
 parser.add_argument('Lx', type=float, help='Value for system size')
 parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
-parser.add_argument('--impulse',action='store_true', help='Flag for impulse perturbation')
+parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
 
 # Parse the command-line arguments
 args = parser.parse_args()
@@ -63,9 +63,8 @@ start_time = time.time()
 
 if __name__ == "__main__":
     
-    Nx = 200 # number of tiles along x ( = Number of divisions along the x-axis)
-    Ny = 200 # number of tiles along y ( = Number of divisions along the y-axis)
-    
+    Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
+    Ny = 100 # number of tiles along y ( = Number of divisions along the y-axis)
     
     # Global parameters
     Pe = args.Pe # Peclet number
@@ -82,12 +81,12 @@ if __name__ == "__main__":
     
     # Flags
     rnd = args.rnd
-    impulse = args.impulse
+    holdpert = args.holdpert
 
     dt = 0.005 # time interval
     t = 0. # starting time
-    t_impulse = 1.0 # impulse time
-    t_end = 40.01 # final time
+    t_pert = 0.1 # perturbation time
+    t_end = 75.01 # final time
     dump_intv = 10 # saving interval
 
     rtol = 1e-10 # tolerance for solving linear problem
@@ -174,7 +173,7 @@ if __name__ == "__main__":
     ux0_2 = dfx.fem.Function(mpc_p.function_space, name="ux0_2")
     ux0_2.x.array[:] = u0
     
-    # Problem for p (nabla u = nabla ( -(k/mu(T)) nabla P) = 0, u = ux0 at x = 0)
+    # Problem for p during perturbation (nabla u = nabla ( -(k/mu(T)) nabla P) = 0, u = ux0 at x = 0)
     F_p = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0 * b * ds(1)
     a_p = ufl.lhs(F_p)
     L_p = ufl.rhs(F_p)
@@ -215,7 +214,16 @@ if __name__ == "__main__":
     problem_u = LinearProblem(a_u, L_u, mpc_u, bcs=[])
     
     # Prepare files for saving
-    out_dir = f"results/Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}/" # directoty for output
+    Pe_str = f"Pe_{Pe:.10g}"
+    Gamma_str = f"Gamma_{Gamma:.10g}"
+    beta_str = f"beta_{beta:.10g}"
+    ueps_str = f"ueps_{ueps:.10g}"
+    Ly_str = f"Ly_{Ly:.10g}"
+    Lx_str = f"Lx_{Lx:.10g}"
+    rnd_str = f"rnd_{rnd}"
+    holdpert_str = f"holdpert_{holdpert}"
+    
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
     xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")
@@ -231,12 +239,13 @@ if __name__ == "__main__":
             print(f"it={it} t={t}")
         
         # Solve problem for p
-        if impulse is False:
+        if holdpert is True:
             p_h = problem_p.solve()
         else:
-            if t < t_impulse:
+            if t < t_pert:
                 p_h = problem_p.solve()
             else:
+                # ux0.x.array[:] = u0
                 p_h = problem_p2.solve()
         
         # Update p (u will update consequently)

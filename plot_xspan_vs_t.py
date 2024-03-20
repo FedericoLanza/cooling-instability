@@ -18,7 +18,7 @@ ueps_str = f"ueps_{ueps:.10g}"
 Lx_str = f"Lx_{Lx:.10g}"
 rnd_str = f"rnd_{rnd}"
 
-Ly_ = [pow(2,a) for a in np.arange(-1, 4.5, 0.5)]
+Ly_ = [pow(2,a) for a in np.arange(-1, 5.0, 0.5)]
 
 colors = plt.cm.viridis(np.linspace(0, 1, len(Ly_)))  # Generate colors using colormap
 color_dict = {}  # Dictionary to store colors for each Ly

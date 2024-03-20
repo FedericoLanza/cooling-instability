@@ -11,10 +11,6 @@ def read_last_value(file_path):
 
 if __name__ == "__main__":
 
-    T = 0.5
-    file_xspan = f"xspan_T={T:.2f}.txt"
-    file_umax = f"umax.txt"
-    
     Pe = 100
     Gamma = 1
     beta = 0.001
@@ -28,79 +24,78 @@ if __name__ == "__main__":
     ueps_str = f"ueps_{ueps:.10g}"
     Lx_str = f"Lx_{Lx:.10g}"
     rnd_str = f"rnd_{rnd}"
-
-    Ly_ = [pow(2,a) for a in np.arange(-1, 4.5, 0.5)] # List of wavelengths
-    xspan_ = [] # List of values of xspan at stationary state
-    xspan2_ = [] # List of values of xspan at stationary state
+    
+    Ly_ = [pow(2,a) for a in np.arange(-1, 5.0, 0.25)] # List of wavelengths
+    T_ = np.linspace(0, 1, 11) # List of temperature levels
+    
+    Ly_explored = [] # List of wavelenght explored
+    #Ly_explored2 = [] # List of wavelenghts explored
+    
     umax_ = [] # List of values of umax at stationary state
-    umax2_ = [] # List of values of umax at stationary state
+    #umax2_ = [] # List of values of umax at stationary state
     
-    # Create or open the output file
-    with open(f"xspan_vs_lambda_T={T:.2f}.txt", 'w') as output_file:
-        output_file.write("Ly xspan\n")
-        
-        # Iterate over the folders Ly_{a}
-        for Ly in Ly_:
-            Ly_str = f"Ly_{Ly:.10g}".format(Ly)
-            
-            folder_name = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str]) + "_holdpert_False/"
-            path_xspan = os.path.join(folder_name, file_xspan)
-            path_umax = os.path.join(folder_name, file_umax)
-            
-            folder2_name = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str]) + "_holdpert_True/"
-            path_xspan2 = os.path.join(folder2_name, file_xspan)
-            path_umax2 = os.path.join(folder2_name, file_umax)
-
-            if os.path.exists(folder_name): # Check if the folder exists
-                if os.path.isfile(path_xspan): # Check if file for xspan exists
-                    last_value = read_last_value(path_xspan)
-                    if last_value is not None:
-                        output_file.write(f"{Ly}\t{last_value}\n")
-                        xspan_.append(last_value)
-                if os.path.isfile(path_umax): # Check if file for umax exists
-                    last_value = read_last_value(path_umax)
-                    if last_value is not None:
-                        #output_file.write(f"{Ly}\t{last_value}\n")
-                        umax_.append(last_value)
-                        
-            if os.path.exists(folder2_name): # Check if the folder exists
-                if os.path.isfile(path_xspan2): # Check if file exists
-                    last_value = read_last_value(path_xspan2)
-                    if last_value is not None:
-                        # output_file.write(f"{Ly}\t{last_value}\n")
-                        xspan2_.append(last_value)
-                if os.path.isfile(path_umax2): # Check if file for umax exists
-                    last_value = read_last_value(path_umax2)
-                    if last_value is not None:
-                        # output_file.write(f"{Ly}\t{last_value}\n")
-                        umax2_.append(last_value)
-                    
-    xspan_float = [float(x) for x in xspan_]
-    xspan2_float = [float(x) for x in xspan2_]
-    umax_float = [float(x) for x in umax_]
-    umax2_float = [float(x) for x in umax2_]
+    file_umax = f"umax.txt" # input file
     
-    print(Ly_)
-    print(xspan_float)
-    print(xspan2_float)
-    print(umax_float)
-    print(umax2_float)
+    # Prepare output files
+    with open(f"umax_vs_lambda.txt", 'w') as output_file:
+            output_file.write("Ly\t umax\n")
+    for T in T_:
+        with open(f"xspan_vs_lambda_T={T:.2f}.txt", 'w') as output_file:
+                output_file.write("Ly\t xspan\n")
     
     fig_xspan, ax_xspan = plt.subplots(1, 1)
-    ax_xspan.scatter(Ly_, xspan_float, label="holdpert_False")
-    ax_xspan.scatter(Ly_, xspan2_float, label="holdpert_True")
+    fig_umax, ax_umax = plt.subplots(1, 1)
+    
+    for Ly in Ly_:
+        Ly_str = f"Ly_{Ly:.10g}".format(Ly)
+            
+        folder_name = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str]) + "_holdpert_False/"
+        path_umax = os.path.join(folder_name, file_umax)
+        #folder2_name = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str]) + "_holdpert_True/"
+        #path_umax2 = os.path.join(folder2_name, file_umax)
+        
+        if os.path.exists(folder_name) and os.path.isfile(path_umax):  # Check if the folder exists and if the data were analyzed
+            Ly_explored.append(Ly)
+            
+            umax_last = read_last_value(path_umax)
+            if umax_last is not None:
+                umax_.append(float(umax_last))
+                with open(f"umax_vs_lambda.txt", 'w') as output_file:
+                        output_file.write(f"{Ly}\t{umax_last}\n")
+                        
+    ax_umax.scatter(Ly_explored, umax_float, label="holdpert_False")
+    # ax_umax.scatter(Ly_umax2, umax2_float, label="holdpert_True")
+    
+    for T in T_:
+        xspan_ = [] # List of values of xspan at stationary state
+        # xspan2_ = [] # List of values of xspan at stationary state
+        
+        file_xspan = f"xspan_T={T:.2f}.txt" # input file
+        for Ly in Ly_:
+            folder_name = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str]) + "_holdpert_False/"
+            path_xspan = os.path.join(folder_name, file_xspan)
+            # path_xspan2 = os.path.join(folder2_name, file_xspan)
+            
+            if os.path.exists(folder_name) and os.path.isfile(path_xspan):  # Check if the folder exists and if the data were analyzed
+                xspan_last = read_last_value(path_xspan)
+                if xspan_last is not None:
+                        xspan_.append(xspan_last)
+                        with open(f"xspan_vs_lambda_T={T:.2f}.txt", 'w') as output_file:
+                            output_file.write(f"{Ly}\t{xspan_last}\n")
+                        
+        ax_xspan.scatter(Ly_explored, xspan_, label="holdpert_False")
+        # ax_xspan.scatter(Ly_exploted, xspan2_, label="holdpert_True")
+
     ax_xspan.set_xscale('log')
     ax_xspan.set_yscale('log')
     ax_xspan.set_xlabel("$\lambda$")
     ax_xspan.set_ylabel("$(x_{max} - x_{min})_{sat}$")
-    
-    fig_umax, ax_umax = plt.subplots(1, 1)
-    ax_umax.scatter(Ly_, umax_float, label="holdpert_False")
-    ax_umax.scatter(Ly_, umax2_float, label="holdpert_True")
+        
     ax_umax.set_xscale('log')
     ax_umax.set_yscale('log')
     ax_umax.set_xlabel("$\lambda$")
     ax_umax.set_ylabel("$(u_{max})_{sat}$")
     #plt.scale
+    
     plt.legend()
     plt.show()

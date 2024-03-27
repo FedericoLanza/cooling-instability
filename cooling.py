@@ -77,7 +77,7 @@ if __name__ == "__main__":
     
     # Base state parameters
     Deff = 1./Pe + 2*Pe*u0*u0/105 # effective constant diffusion for the base state
-    lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / 2*Deff # decay constant for the base state
+    lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / (2*Deff) # decay constant for the base state
     
     # Flags
     rnd = args.rnd
@@ -86,10 +86,10 @@ if __name__ == "__main__":
     dt = 0.005 # time interval
     t = 0. # starting time
     t_pert = 0.1 # perturbation time
-    t_end = 75.01 # final time
+    t_end = 50.01 # final time
     dump_intv = 10 # saving interval
 
-    rtol = 1e-10 # tolerance for solving linear problem
+    rtol = 1e-14 # tolerance for solving linear problem
 
     # Generate mesh
     def mesh_warp(x): # function for non-constant length of grid

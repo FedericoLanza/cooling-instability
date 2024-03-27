@@ -42,7 +42,7 @@ if __name__ == "__main__":
     
     # base state parameters
     Deff = 1./Pe + 2*Pe*u0*u0/105 # effective constant diffusion for the base state
-    lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / 2*Deff # decay constant for the base state
+    lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / (2*Deff) # decay constant for the base state
     
     # flags
     rnd = args.rnd
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -128,10 +128,16 @@ if __name__ == "__main__":
         ux_max_ = ux_vals_.max(axis=0) # max of u_x along y at fixed t
 
         # Plot T and u_x along y for fixed x
+        #colors = plt.cm.viridis(np.linspace(0, 1, range(Nx)[2::10]))
+        #color_dict = {}
+        
         fig1, ax1 = plt.subplots(1, 2, figsize=(12, 4))
         for i in range(Nx)[::10]:
             ax1[0].plot(y, T_vals_[:, i], label=f"$x={x[i]:1.2f}$") # plot T(y) for different x
             ax1[1].plot(y, ux_vals_[:, i]) # plot u_x(y) for different x
+        for i in range(Nx)[2::10]:
+            gauss = [ (2./np.sqrt(0.027*math.pi*x[i]))*np.exp( -( y_ - Ly/4 )**2/(0.027*x[i]) ) for y_ in y]
+            ax1[1].plot(y, gauss, linestyle='dotted')
         ax1[0].set_ylabel("$T$")
         ax1[1].set_ylabel("$u_x$")
         ax1[0].legend()
@@ -161,6 +167,7 @@ if __name__ == "__main__":
         plt.show()
         plt.close()
     
+    #exit(0)
     # Analyze evolution
     for it in it_:
         t = t_[it] # time at step it
@@ -210,11 +217,11 @@ if __name__ == "__main__":
             xmax[level][it] = verts[:, 0].max() # max x-position of a level
             xmin[level][it] = verts[:, 0].min() # min x-position of a level
 
-        umax[it] = np.linalg.norm(u_, axis=0).max() # max of |u| at step it
+        umax[it] = np.linalg.norm(u_, axis=1).max() # max of |u| at step it
     
     # Plot umax vs t (and save in file .txt)
     figu, axu = plt.subplots(1, 1)
-    axu.plot(t_[1:], umax[1:]) # plot u_max vs t
+    axu.plot(t_[1:len(it_)], umax[1:len(it_)]) # plot u_max vs t
     axu.set_xlabel("$t$")
     axu.set_ylabel("$u_{max}$")
     figu.savefig(out_dir + f'/umax.jpg', dpi=300)
@@ -229,8 +236,8 @@ if __name__ == "__main__":
     for level in levels[1:-1]:
         xbase = -lambda_ * math.log(level)
         #axf[0].plot(t_, xmax[level], label=f"$T={level:1.2f}$") # plot xmax vs t for each level
-        axf[0].plot(t_, xmax[level]) # plot xmax vs t for each level
-        axf[1].plot(t_, xmin[level]) # plot xmin vs t for each level
+        axf[0].plot(t_[:len(it_)], xmax[level][:len(it_)]) # plot xmax vs t for each level
+        axf[1].plot(t_[:len(it_)], xmin[level][:len(it_)]) # plot xmin vs t for each level
         axf[2].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]) ) # plot span vs t for each level
         axf[3].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]) ) # plot span vs t for each level
         axf[4].plot(t_[1:len(it_)], (xmax[level][1:len(it_)]/xmin[level][1:len(it_)]), label=f"$T={level:1.2f}$") # plot span vs t for each level

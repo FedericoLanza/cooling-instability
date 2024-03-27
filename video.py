@@ -127,10 +127,13 @@ if __name__ == "__main__":
         #del u_  # Clear u_ from memory
             
         general_title = f"$t = {t:1.2f}$, "
-        if t < 0.1:
+        if t < 0.1 and holdpert is False:
             general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
         else:
-            general_title += f" $u_x(x=0) = u_0$"
+            if holdpert is False:
+                general_title += f" $u_x(x=0) = u_0$"
+            else:
+                general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
         fig.suptitle(general_title)
         
         #plt.cla()  # Clear the current axes

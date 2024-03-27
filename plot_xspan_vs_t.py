@@ -18,7 +18,7 @@ ueps_str = f"ueps_{ueps:.10g}"
 Lx_str = f"Lx_{Lx:.10g}"
 rnd_str = f"rnd_{rnd}"
 
-Ly_ = [pow(2,a) for a in np.arange(-1, 5.0, 0.5)]
+Ly_ = [pow(2,a) for a in np.arange(-1, 5., 0.5)]
 
 colors = plt.cm.viridis(np.linspace(0, 1, len(Ly_)))  # Generate colors using colormap
 color_dict = {}  # Dictionary to store colors for each Ly
@@ -35,7 +35,7 @@ for i, Ly in enumerate(Ly_):
             data = [line.split() for line in file.readlines()]
             x_values = [float(row[0]) for row in data]
             y_values = [float(row[1]) for row in data]
-            plt.plot(x_values, y_values, label=f"$L_y={Ly:.7g}$", color=color_dict[Ly])
+            plt.plot(x_values, y_values, label=f"$\lambda={Ly:.7g}$", color=color_dict[Ly])
     #if os.path.isfile(file2_path):
     #    with open(file2_path, 'r') as file:
     #        data2 = [line.split() for line in file.readlines()]
@@ -47,5 +47,5 @@ plt.semilogy()
 plt.xlabel("t")
 plt.ylabel("$x_{max}-x_{min}$")
 #plt.scale
-plt.legend()
+#plt.legend()
 plt.show()

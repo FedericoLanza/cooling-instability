@@ -8,7 +8,7 @@ import ufl
 import dolfinx as dfx
 from dolfinx_mpc import LinearProblem, MultiPointConstraint
 import numpy as np
-from dolfinx.mesh import create_unit_square, locate_entities_boundary
+from dolfinx.mesh import create_unit_square, CellType, locate_entities_boundary
 from utils import get_next_subfolder, mpi_comm, mpi_rank, mpi_size
 
 
@@ -63,8 +63,8 @@ start_time = time.time()
 
 if __name__ == "__main__":
     
-    Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
-    Ny = 100 # number of tiles along y ( = Number of divisions along the y-axis)
+    Nx = 200 # number of tiles along x ( = Number of divisions along the x-axis)
+    Ny = 200 # number of tiles along y ( = Number of divisions along the y-axis)
     
     # Global parameters
     Pe = args.Pe # Peclet number
@@ -102,14 +102,15 @@ if __name__ == "__main__":
         x_out[ids_more] = (1.-y0)/(1.-x0) * (x[ids_more]-1) + 1
         return x_out
     alpha = 2
-    mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny)
+    mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny, diagonal=dfx.cpp.mesh.DiagonalType.right)
+    #mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny, cell_type=CellType.quadrilateral, diagonal=dfx.cpp.mesh.DiagonalType.left)
     mesh.geometry.x[:, 0] = mesh_warp(mesh.geometry.x[:, 0]) * Lx
     mesh.geometry.x[:, 1] *= Ly
     
     # Define the finite element function spaces
     S = dfx.fem.FunctionSpace(mesh, ("Lagrange", 1))
+    # V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "quadrilateral", 0))
     V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "triangle", 0))
-
     x = ufl.SpatialCoordinate(mesh)
 
     # Create Dirichlet boundary condition
@@ -223,7 +224,7 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_right_200/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
     xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")

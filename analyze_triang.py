@@ -122,7 +122,7 @@ if __name__ == "__main__":
         p_vals_ = p_intp(X, Y) # values of p obtained from interpolation on the meshgrid
         px_vals_, py_vals_ = p_intp.gradient(X, Y) # gradient of p
 
-        ux_vals_ = -beta**-T_vals_ * px_vals_ # x-component of velocity field (u = beta^(-T) \nabla p)
+        ux_vals_ = -beta**-T_vals_ * px_vals_ # velocity field (u = beta^(-T) \nabla p)
 
         T_max_ = T_vals_.max(axis=0) # max of T along y at fixed t
         ux_max_ = ux_vals_.max(axis=0) # max of u_x along y at fixed t

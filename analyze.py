@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
     # parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
-    parser.add_argument("--video", action="store_true", help="Video") # optional argument: typing --video enables the "video" feature
+    parser.add_argument("--snap", action="store_true", help="Snap") # optional argument: typing --snap enables the "snap" feature
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -79,7 +79,17 @@ if __name__ == "__main__":
     with h5py.File(geometry_address[0], "r") as h5f:
         nodes = h5f[geometry_address[1]][:] # modes of triangular lattice
     
-    triang = tri.Triangulation(nodes[:, 0], nodes[:, 1], elems) # triangular lattice
+    # Prepare meshgrid
+    x = nodes[:, 0]
+    y = nodes[:, 1]
+    x_sort = np.unique(x)
+    y_sort = np.unique(y)
+    nx = len(x_sort)
+    ny = len(y_sort)
+    X, Y = np.meshgrid(x_sort, y_sort)
+    
+    # Sort indices of nodes array
+    sort_indices = np.lexsort((nodes[:, 0], nodes[:, 1]))
 
     t_ = np.array(sorted(dsets_T.keys())) # time array
     it_ = list(range(len(t_))) # iteration steps
@@ -89,55 +99,44 @@ if __name__ == "__main__":
     u_ = np.zeros((len(elems), 2)) # velocity field
 
     levels = np.linspace(0, 1, 11) # levels of T
-
     xmax = dict([(level, np.zeros_like(t_)) for level in levels]) # max x-position of a level for all time steps, for all levels
     xmin = dict([(level, np.zeros_like(t_)) for level in levels]) # min x-position of a level for all time steps, for all levels
     umax = np.zeros_like(t_) # max velocity for all time steps
-
+    
     # Analyze final state
     
     if True:
         beta = 0.001 # viscosity ratio
 
         t = t_[it_[-1]] # final time
-        dset = dsets_T[t] # T-dictionary at final time
-        with h5py.File(dset[0], "r") as h5f:
-            T_[:] = h5f[dset[1]][:, 0] # takes values of T from the T-dictionary
-
+        dset_T = dsets_T[t] # T-dictionary at final time
+        with h5py.File(dset_T[0], "r") as h5f:
+            T_[:] = h5f[dset_T[1]][:, 0] # takes values of T from the T-dictionary
+        T_sorted = T_[sort_indices]
+        T_r = T_sorted.reshape((nx, ny))
+        
         with h5py.File(dsets_p[t][0], "r") as h5f:
             p_[:] = h5f[dsets_p[t][1]][:, 0] # takes values of p from the p-dictionary
+        p_sorted = p_[sort_indices]
+        p_r = p_sorted.reshape((nx, ny))
 
-        T_intp = tri.CubicTriInterpolator(triang, T_) # interpolator from T values on triang lattice
-        p_intp = tri.CubicTriInterpolator(triang, p_) # interpolator from p values on triang lattice
+        grad_py, grad_px = np.gradient(p_r, y_sort, x_sort) # gradient of p
+        ux_r = -beta**-T_r * grad_px # x-component of velocity field (u = beta^(-T) \nabla p)
 
-        Nx = 100
-        Ny = 50
-
-        x = np.linspace(nodes[:, 0].min(), nodes[:, 0].max(), Nx) # array with x-coordinates of the new mesh
-        y = np.linspace(nodes[:, 1].min(), nodes[:, 1].max(), Ny) # array with y-coordinates of the new mesh
-
-        X, Y = np.meshgrid(x, y) # array representing the mesh coordinates
-
-        T_vals_ = T_intp(X, Y) # values of T obtained from interpolation on the meshgrid
-        p_vals_ = p_intp(X, Y) # values of p obtained from interpolation on the meshgrid
-        px_vals_, py_vals_ = p_intp.gradient(X, Y) # gradient of p
-
-        ux_vals_ = -beta**-T_vals_ * px_vals_ # x-component of velocity field (u = beta^(-T) \nabla p)
-
-        T_max_ = T_vals_.max(axis=0) # max of T along y at fixed t
-        ux_max_ = ux_vals_.max(axis=0) # max of u_x along y at fixed t
+        T_max_ = T_r.max(axis=0) # max of T along y at fixed t
+        ux_max_ = ux_r.max(axis=0) # max of u_x along y at fixed t
 
         # Plot T and u_x along y for fixed x
+        
         #colors = plt.cm.viridis(np.linspace(0, 1, range(Nx)[2::10]))
         #color_dict = {}
-        
         fig1, ax1 = plt.subplots(1, 2, figsize=(12, 4))
-        for i in range(Nx)[::10]:
-            ax1[0].plot(y, T_vals_[:, i], label=f"$x={x[i]:1.2f}$") # plot T(y) for different x
-            ax1[1].plot(y, ux_vals_[:, i]) # plot u_x(y) for different x
-        for i in range(Nx)[2::10]:
-            gauss = [ (2./np.sqrt(0.027*math.pi*x[i]))*np.exp( -( y_ - Ly/4 )**2/(0.027*x[i]) ) for y_ in y]
-            ax1[1].plot(y, gauss, linestyle='dotted')
+        for i in range(nx)[::10]:
+            ax1[0].plot(y_sort, T_r[:, i], label=f"$x={x[i]:1.2f}$") # plot T(y) for different x
+            ax1[1].plot(y_sort, ux_r[:, i]) # plot u_x(y) for different x
+        #for i in range(nx)[2::10]:
+        #    gauss = [ (2./np.sqrt(0.027*math.pi*x[i]))*np.exp( -( y_ - Ly/4 )**2/(0.027*x[i]) ) for y_ in y]
+        #    ax1[1].plot(y, gauss, linestyle='dotted')
         ax1[0].set_ylabel("$T$")
         ax1[1].set_ylabel("$u_x$")
         ax1[0].legend()
@@ -145,10 +144,11 @@ if __name__ == "__main__":
         fig1.savefig(out_dir + '/fx.png', dpi=300)
         
         # Plot T and u_x along x for fixed y
+        
         fig2, ax2 = plt.subplots(1, 2, figsize=(12, 4))
-        for i in range(Ny)[::10]:
-            ax2[0].plot(x, T_vals_[i, :], label=f"$y={y[i]:1.2f}$") # plot T(x) for different y
-            ax2[1].plot(x, ux_vals_[i, :]) # plot u_x(x) for different y
+        for i in range(ny)[::10]:
+            ax2[0].plot(x_sort, T_r[i, :], label=f"$y={y[i]:1.2f}$") # plot T(x) for different y
+            ax2[1].plot(x_sort, ux_r[i, :]) # plot u_x(x) for different y
         ax2[0].set_ylabel("$T$")
         ax2[1].set_ylabel("$u_x$")
         ax2[0].legend()
@@ -157,29 +157,73 @@ if __name__ == "__main__":
         
         # Plot max of T and u_x along x for fixed y
         fig3, ax3 = plt.subplots(1, 2, figsize=(12, 4))
-        ax3[0].plot(x, T_max_)
-        ax3[1].plot(x, ux_max_)
+        ax3[0].plot(x_sort, T_max_)
+        ax3[1].plot(x_sort, ux_max_)
         ax3[0].set_ylabel("$T_{max}(x)$")
         ax3[1].set_ylabel("$u_{x,max}(x)$")
         [axi.set_xlabel("$x$") for axi in ax3]
         fig3.savefig(out_dir + '/maxfy.png', dpi=300)
         
+        if (args.snap)
+        
+            # Plot colormaps of T at final state with levels
+            figT, axT = plt.subplots(1, 1)
+            
+            im_T = axT.pcolormesh(X, Y, T_r, vmin=0., vmax=1.) # plot of colormap of T
+            cb_T = plt.colorbar(im_T, ax=axT[0]) # colorbar
+            cs = axT.contour(X, Y, T_r, levels=levels, colors="k") # plot of different levels on the colormap
+            axT.set_aspect("equal")
+            axT.set_xlabel("$x$")
+            axT.set_ylabel("$y$")
+            figT.set_tight_layout(True)
+            figT.savefig(out_dir + '/Tlevelmap.png', dpi=300)
+            plt.show()
+            plt.close()
+        
+            # Calculate uy
+            uy_r = -beta**-T_r * grad_py
+            
+            # Plot colormaps of ux and uy at final state
+            figu, axu = plt.subplots(1, 2, figsize=(9, 3))
+            
+            im_ux = axu[0].pcolormesh(X, Y, ux_r) # plot of colormap of ux
+            cb_ux = plt.colorbar(im_ux, ax=axu[0]) # colorbar
+            axu[0].set_title("$u_x$")
+            [axi.set_xlabel("$x$") for axi in axu]
+            
+            im_uy = axu[1].pcolormesh(X, Y, uy_r) # plot of colormap of ux
+            cb_uy = plt.colorbar(im_uy, ax=axu[1]) # colorbar
+            axu[1].set_title("$u_y$")
+            [axi.set_ylabel("$y$") for axi in axu]
+            
+            figu.suptitle(f"Final state ($t = {t:1.2f}$)")
+            figu.savefig(out_dir + f'/umap.jpg', dpi=300)
+        
         plt.show()
         plt.close()
     
     #exit(0)
-    # Analyze evolution
+    
+    # Analyze time evolution
+    
     for it in it_:
         t = t_[it] # time at step it
         print(f"it={it} t={t}")
 
         # Load data
-        dset = dsets_T[t] # T-dictionary at time t
-        with h5py.File(dset[0], "r") as h5f:
-            T_[:] = h5f[dset[1]][:, 0] # takes values of T from the T-dictionary
+        dset_T = dsets_T[t] # T-dictionary at time t
+        with h5py.File(dset_T[0], "r") as h5f:
+            T_[:] = h5f[dset_T[1]][:, 0] # Takes values of T from the T-dictionary
+        T_sorted = T_[sort_indices]
+        T_r = T_sorted.reshape((nx, ny))
 
-        with h5py.File(dsets_u[t][0], "r") as h5f:
-            u_[:, :] = h5f[dsets_u[t][1]][:, :2] # takes values of u from the T-dictionary
+        with h5py.File(dsets_p[t][0], "r") as h5f:
+            p_[:] = h5f[dsets_p[t][1]][:, 0] # Takes values of p from the p-dictionary
+        p_sorted = p_[sort_indices]
+        p_r = p_sorted.reshape((nx, ny))
+        
+        grad_py, grad_px = np.gradient(p_r, y_sort, x_sort) # gradient of p
+        ux_r = -beta**-T_r * grad_px # x-component of velocity field (u = beta^(-T) \nabla p)
 
         # Plot colormaps of T at final state
         figT, axT = plt.subplots(1, 1)
@@ -193,20 +237,8 @@ if __name__ == "__main__":
             figT.savefig(out_dir + '/Tlevelmap.png', dpi=300)
             plt.show()
         plt.close()
-            
-        # Plot colormaps of ux and uy at final state
-        if (it == it_[-1]):
-            figu, axu = plt.subplots(1, 2, figsize=(9, 3))
-            axu[0].tripcolor(triang, u_[:, 0]) # plot colormap of u_x
-            axu[1].tripcolor(triang, u_[:, 1]) # plot colormap of u_y
-            axu[0].set_title("$u_x$")
-            axu[1].set_title("$u_y$")
-            [axi.set_xlabel("$x$") for axi in axu]
-            [axi.set_ylabel("$y$") for axi in axu]
-            figu.suptitle(f"t = {t:1.2f}")
-            figu.savefig(out_dir + f'/umap.jpg', dpi=300)
-            plt.close()
-            
+        
+        cs = plt.contour(X, Y, T_r, levels=levels, colors="k") # plot of different levels on the colormap
         paths = [] # curves formed by each level
         for level, path in zip(cs.levels, cs.get_paths()):
             if len(path.vertices): # if the path has non-null lenght
@@ -219,29 +251,32 @@ if __name__ == "__main__":
 
         umax[it] = np.linalg.norm(u_, axis=1).max() # max of |u| at step it
     
-    # Plot umax vs t (and save in file .txt)
+    # Plot umax vs t
     figu, axu = plt.subplots(1, 1)
     axu.plot(t_[1:len(it_)], umax[1:len(it_)]) # plot u_max vs t
     axu.set_xlabel("$t$")
     axu.set_ylabel("$u_{max}$")
     figu.savefig(out_dir + f'/umax.jpg', dpi=300)
     
+    # Save umax vs t in file .txt
     umax_data =  np.column_stack(( t_[1:], umax[1:] ))
     np.savetxt(out_dir + f'/umax.txt', umax_data, fmt='%1.9f')
     
+    
+    # Plot xmax, xmin, xspan, xratio vs t (and save in file .txt)
     figf, axf = plt.subplots(1, 5, figsize=(30, 3))
     figf.subplots_adjust(wspace=0.3)
     
-    # Plot xmax, xmin, xspan, xratio vs t (and save in file .txt)
     for level in levels[1:-1]:
         xbase = -lambda_ * math.log(level)
-        #axf[0].plot(t_, xmax[level], label=f"$T={level:1.2f}$") # plot xmax vs t for each level
+        # axf[0].plot(t_, xmax[level], label=f"$T={level:1.2f}$") # plot xmax vs t for each level
         axf[0].plot(t_[:len(it_)], xmax[level][:len(it_)]) # plot xmax vs t for each level
         axf[1].plot(t_[:len(it_)], xmin[level][:len(it_)]) # plot xmin vs t for each level
         axf[2].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]) ) # plot span vs t for each level
         axf[3].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]) ) # plot span vs t for each level
         axf[4].plot(t_[1:len(it_)], (xmax[level][1:len(it_)]/xmin[level][1:len(it_)]), label=f"$T={level:1.2f}$") # plot span vs t for each level
         
+        # Save xspan, xratio vs t in file .txt
         xspan_data =  np.column_stack(( t_[1:len(it_)], xmax[level][1:len(it_)] - xmin[level][1:len(it_)] ))
         np.savetxt(out_dir + f'/xspan_T={level:1.2f}.txt', xspan_data, fmt='%1.9f')
         xratio_data = np.column_stack(( t_[1:len(it_)], xmax[level][1:len(it_)]/xmin[level][1:len(it_)] ))

@@ -78,10 +78,10 @@ if __name__ == "__main__":
     dsets_p = parse_xdmf(pfile, get_mesh_address=False) # extracts data from p.xdmf file
     dsets_p = dict(dsets_p)
     
-    print('topology_address = ', topology_address)
-    print('type(topology_address) = ', type(topology_address))
-    print('geometry_address = ', geometry_address)
-    print('type(geometry_address) = ', type(geometry_address))
+#    print('topology_address = ', topology_address)
+#    print('type(topology_address) = ', type(topology_address))
+#    print('geometry_address = ', geometry_address)
+#    print('type(geometry_address) = ', type(geometry_address))
     
     with h5py.File(topology_address[0], "r") as h5f:
         elems = h5f[topology_address[1]][:] # elements of triangular lattice
@@ -89,23 +89,21 @@ if __name__ == "__main__":
     with h5py.File(geometry_address[0], "r") as h5f:
         nodes = h5f[geometry_address[1]][:] # nodes of triangular lattice
     
-    print('elems = ', elems)
-    print('type(elems) = ', type(elems))
-    print('shape(elems) = ', elems.shape)
-    print('nodes = ', nodes)
-    print('type(nodes) = ', type(nodes))
-    print('shape(nodes) = ', nodes.shape)
+#    print('elems = ', elems)
+#    print('type(elems) = ', type(elems))
+#    print('shape(elems) = ', elems.shape)
+#    print('nodes = ', nodes)
+#    print('type(nodes) = ', type(nodes))
+#    print('shape(nodes) = ', nodes.shape)
     
     # Prepare meshgrid
     x = nodes[:, 0]
     y = nodes[:, 1]
-    print('np.unique(x) =', np.unique(x))
-    print('np.unique(y) =', np.unique(y))
     nx = len(np.unique(x))
     ny = len(np.unique(y))
     X, Y = np.meshgrid(np.unique(x), np.unique(y))
     
-    # Obtain sort indices of nodes array
+    # Sort indices of nodes array
     sort_indices = np.lexsort((nodes[:, 0], nodes[:, 1]))
     
     t_ = np.array(sorted(dsets_T.keys())) # time array
@@ -117,14 +115,10 @@ if __name__ == "__main__":
     T_ = np.zeros_like(nodes[:, 0]) # temperature field
     p_ = np.zeros_like(T_) # pressure field
     u_ = np.zeros((len(elems), 2)) # velocity field
-    #fig, (axT, axu) = plt.subplots(1, 2)
-    
-    fig, axu = plt.subplots(1, 1, figsize=(15, 5))
-    axu.set_title("$u_x(x,y)$")
     
     # Initialize overall minimum and maximum values
-    overall_min = float('inf')
-    overall_max = float('-inf')
+    overall_min_ux = float('inf')
+    overall_max_ux = float('-inf')
     
     num_frames = len(t_)
     for frame in range(num_frames):
@@ -145,34 +139,59 @@ if __name__ == "__main__":
         grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
         ux_r = -beta**-T_r * grad_px
         
-        overall_min = min(overall_min, np.min(ux_r))
-        overall_max = max(overall_max, np.max(ux_r))
+        overall_min_ux = min(overall_min_ux, np.min(ux_r))
+        overall_max_ux = max(overall_max_ux, np.max(ux_r))
     
-    print("overall_min = ", overall_min)
-    print("overall_max = ", overall_max)
+    # Prepare figures for videos
+    figT, axT = plt.subplots(1, 1, figsize=(15, 5))
+    axT.set_xlabel("$x$")
+    axT.set_ylabel("$y$")
+    axT.set_title("$T(x,y)$")
+    im_T = axT.pcolormesh(X, Y, np.zeros_like(X), vmin=0., vmax=1.)
+    cb_T = plt.colorbar(im_T, ax=axT) # colorbar
     
-    im = axu.pcolormesh(X, Y, np.zeros_like(X), vmin=overall_min, vmax=overall_max)
-    cb = plt.colorbar(im, ax=axu)
+    figu, axu = plt.subplots(1, 1, figsize=(15, 5))
+    axu.set_xlabel("$x$")
+    axu.set_ylabel("$y$")
+    axu.set_title("$u_x(x,y)$")
+    im_ux = axu.pcolormesh(X, Y, np.zeros_like(X), vmin=overall_min_ux, vmax=overall_max_ux)
+    cb_ux = plt.colorbar(im_ux, ax=axu) # colorbar
     
-    def update(frame):
-    # if True:
+    def update_T(frame):
         t = t_[frame]  # time at step it
         print(f"it={frame} t={t}")
         
         #Clear previous steps
-        #axT.clear()
-        axu.clear()
+        axT.clear()
         
         #Update data for T
-        #dset_T = dsets_T[t]  # T-dictionary at time t
-        #with h5py.File(dset_T[0], "r") as h5f:
-        #    T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
-        #T_sorted = T_[sort_indices]
-        #T_r = T_sorted.reshape((nx, ny))
-        #axT.pcolormesh(X, Y, T_r) # plot of colormap of T
-        #axT.set_xlabel("$x$")
-        #axT.set_ylabel("$y$")
-        #axT.set_title(f"$T(x,y)$")
+        dset_T = dsets_T[t]  # T-dictionary at time t
+        with h5py.File(dset_T[0], "r") as h5f:
+            T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
+        T_sorted = T_[sort_indices]
+        T_r = T_sorted.reshape((nx, ny))
+        
+        im_T = axT.pcolormesh(X, Y, T_r, vmin=0., vmax=1.) # plot of colormap of T
+        
+        general_title = f"$t = {t:1.2f}$, "
+        if t < 0.1 and holdpert is False:
+            general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        else:
+            if holdpert is False:
+                general_title += f" $u_x(x=0) = u_0$"
+            else:
+                general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        figT.suptitle(general_title)
+        
+        return im_T
+        #plt.cla()  # Clear the current axes
+    
+    def update_ux(frame):
+        t = t_[frame]  # time at step it
+        print(f"it={frame} t={t}")
+        
+        #Clear previous steps
+        axu.clear()
         
         # Update data for ux
         dset_T = dsets_T[t]  # T-dictionary at time t
@@ -189,7 +208,7 @@ if __name__ == "__main__":
         
         grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
         ux_r = -beta**-T_r * grad_px
-        im = axu.pcolormesh(X, Y, ux_r, vmin=overall_min, vmax=overall_max) # plot of colormap of ux
+        im_ux = axu.pcolormesh(X, Y, ux_r, vmin=overall_min_ux, vmax=overall_max_ux) # plot of colormap of ux
         
         general_title = f"$t = {t:1.2f}$, "
         if t < 0.1 and holdpert is False:
@@ -199,11 +218,13 @@ if __name__ == "__main__":
                 general_title += f" $u_x(x=0) = u_0$"
             else:
                 general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
-        fig.suptitle(general_title)
+        figu.suptitle(general_title)
         
-        return im
-        #plt.cla()  # Clear the current axes
+        return im_ux
     
-    #num_frames = 1
-    animation = FuncAnimation(fig, update, frames=num_frames, blit=False)
-    animation.save(out_dir + '/ux.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
+    print('making video for T')
+    animation_T = FuncAnimation(figT, update_T, frames=num_frames, blit=False)
+    animation_T.save(out_dir + '/T.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
+    print('making video for ux')
+    animation_ux = FuncAnimation(figu, update_ux, frames=num_frames, blit=False)
+    animation_ux.save(out_dir + '/ux.mp4', fps=10, extra_args=['-vcodec', 'libx264'])

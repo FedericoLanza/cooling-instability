@@ -266,7 +266,7 @@ if __name__ == "__main__":
             xmax[level][it] = verts[:, 0].max() # max x-position of a level
             xmin[level][it] = verts[:, 0].min() # min x-position of a level
             
-        u_r = np.sqrt(ux_r**2 + uy_r**2) # |u| : absolute value of velocity field
+        u_r = np.sqrt(ux_r**2 + uy_r**2) # |u| : absolute value of velocity field.
         umax[it] = u_r.max() # max of |u| at step it
     
     # Plot umax vs t

@@ -63,7 +63,7 @@ start_time = time.time()
 
 if __name__ == "__main__":
     
-    Nx = 200 # number of tiles along x ( = Number of divisions along the x-axis)
+    Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
     Ny = 200 # number of tiles along y ( = Number of divisions along the y-axis)
     
     # Global parameters
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     rtol = 1e-14 # tolerance for solving linear problem
 
     # Generate mesh
-    def mesh_warp(x): # function for non-constant length of grid
+    def mesh_warp_x(x): # function for non-constant length of grid along x
         x0 = 0.6 # percentage of tiles after which you change function for length
         y0 = 0.2 # parameter to adjust
         ids_less = x < x0
@@ -101,16 +101,26 @@ if __name__ == "__main__":
         x_out[ids_less] = (y0/x0) * x[ids_less]
         x_out[ids_more] = (1.-y0)/(1.-x0) * (x[ids_more]-1) + 1
         return x_out
+    def mesh_warp_y(x): # function for non-constant length of grid along y
+        x0 = 0.75 # percentage of tiles after which you change function for length
+        y0 = 0.375 # parameter to adjust
+        ids_less = x < x0
+        ids_more = np.logical_not(ids_less)
+        x_out = np.zeros_like(x)
+        x_out[ids_less] = (y0/x0) * x[ids_less]
+        x_out[ids_more] = (1.-y0)/(1.-x0) * (x[ids_more]-1) + 1
+        return x_out
     alpha = 2
-    mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny, diagonal=dfx.cpp.mesh.DiagonalType.right)
-    #mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny, cell_type=CellType.quadrilateral, diagonal=dfx.cpp.mesh.DiagonalType.left)
-    mesh.geometry.x[:, 0] = mesh_warp(mesh.geometry.x[:, 0]) * Lx
+    #mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny, diagonal=dfx.cpp.mesh.DiagonalType.right)
+    mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny, cell_type=CellType.quadrilateral, diagonal=dfx.cpp.mesh.DiagonalType.left)
+    #mesh.geometry.x[:, 0] = mesh_warp_x(mesh.geometry.x[:, 0]) * Lx
+    mesh.geometry.x[:, 0] *= Lx
     mesh.geometry.x[:, 1] *= Ly
     
     # Define the finite element function spaces
     S = dfx.fem.FunctionSpace(mesh, ("Lagrange", 1))
-    # V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "quadrilateral", 0))
-    V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "triangle", 0))
+    V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "quadrilateral", 0))
+    # V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "triangle", 0))
     x = ufl.SpatialCoordinate(mesh)
 
     # Create Dirichlet boundary condition
@@ -224,7 +234,7 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_right_200/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_uniform_mesh/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
     xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")

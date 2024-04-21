@@ -62,7 +62,7 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_left_200/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_right_200/" # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")

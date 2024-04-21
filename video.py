@@ -103,6 +103,9 @@ if __name__ == "__main__":
     ny = len(np.unique(y))
     X, Y = np.meshgrid(np.unique(x), np.unique(y))
     
+    print('len(np.unique(x)) = ', len(np.unique(x)))
+    print('len(np.unique(y)) = ', len(np.unique(y)))
+    
     # Sort indices of nodes array
     sort_indices = np.lexsort((nodes[:, 0], nodes[:, 1]))
     
@@ -128,13 +131,13 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((nx, ny))
+        T_r = T_sorted.reshape((ny, nx))
         
         dset_p = dsets_p[t] # p-dictionary at time t
         with h5py.File(dset_p[0], "r") as h5f:
             p_[:] = h5f[dset_p[1]][:, 0] # takes values of p from the p-dictionary
         p_sorted = p_[sort_indices]
-        p_r = p_sorted.reshape((nx, ny))
+        p_r = p_sorted.reshape((ny, nx))
         
         grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
         ux_r = -beta**-T_r * grad_px
@@ -169,7 +172,7 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((nx, ny))
+        T_r = T_sorted.reshape((ny, nx))
         
         im_T = axT.pcolormesh(X, Y, T_r, vmin=0., vmax=1.) # plot of colormap of T
         
@@ -198,13 +201,17 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((nx, ny))
+        T_r = T_sorted.reshape((ny, nx))
         
         dset_p = dsets_p[t] # p-dictionary at time t
         with h5py.File(dset_p[0], "r") as h5f:
             p_[:] = h5f[dset_p[1]][:, 0] # takes values of p from the p-dictionary
         p_sorted = p_[sort_indices]
-        p_r = p_sorted.reshape((nx, ny))
+        p_r = p_sorted.reshape((ny, nx))
+        
+        #print('len(p_r) = ', len(p_r))
+        #print('len(np.unique(x)) = ', len(np.unique(x)))
+        #print('len(np.unique(y)) = ', len(np.unique(y)))
         
         grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
         ux_r = -beta**-T_r * grad_px

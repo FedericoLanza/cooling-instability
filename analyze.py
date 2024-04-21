@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib import tri
 
+#ciao
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
     parser.add_argument('Pe', type=float, help='Value for Peclet number')

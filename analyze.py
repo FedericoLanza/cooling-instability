@@ -8,6 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib import tri
+from scipy.interpolate import RectBivariateSpline
+from sklearn.linear_model import LinearRegression
 
 #ciao
 
@@ -88,7 +90,14 @@ if __name__ == "__main__":
     y_sort = np.unique(y)
     nx = len(x_sort)
     ny = len(y_sort)
+    print ("nx = ", nx, ", ny = ",ny)
     X, Y = np.meshgrid(x_sort, y_sort)
+    
+    x_min = min(nodes[:, 0])
+    x_max = max(nodes[:, 0])
+    nx_high_res = 400
+    x_high_res = np.linspace(x_min, x_max, nx_high_res)
+    X_high_res, Y_high_res = np.meshgrid(x_high_res, y_sort)
     
     # Sort indices of nodes array
     sort_indices = np.lexsort((nodes[:, 0], nodes[:, 1]))
@@ -100,6 +109,8 @@ if __name__ == "__main__":
     p_ = np.zeros_like(T_) # pressure field
     u_ = np.zeros((len(elems), 2)) # velocity field
 
+    n_steps = len(it_)
+    t_end = 50.01 # have to be updated manually
     levels = np.linspace(0, 1, 11) # levels of T
     xmax = dict([(level, np.zeros_like(t_)) for level in levels]) # max x-position of a level for all time steps, for all levels
     xmin = dict([(level, np.zeros_like(t_)) for level in levels]) # min x-position of a level for all time steps, for all levels
@@ -115,27 +126,33 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0] # takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((ny, nx))
+        T_r_ = T_sorted.reshape((ny, nx))
         
         
         with h5py.File(dsets_p[t][0], "r") as h5f:
             p_[:] = h5f[dsets_p[t][1]][:, 0] # takes values of p from the p-dictionary
         p_sorted = p_[sort_indices]
-        p_r = p_sorted.reshape((ny, nx))
+        p_r_ = p_sorted.reshape((ny, nx))
 
-        grad_py, grad_px = np.gradient(p_r, y_sort, x_sort) # gradient of p
-        ux_r = -beta**-T_r * grad_px # x-component of velocity field (u = beta^(-T) \nabla p)
+        grad_py, grad_px = np.gradient(p_r_, y_sort, x_sort) # gradient of p
+        ux_r_ = -beta**-T_r_ * grad_px # x-component of velocity field (u = beta^(-T) \nabla p)
 
-        T_max_ = T_r.max(axis=0) # max of T along y at fixed t
-        ux_max_ = ux_r.max(axis=0) # max of u_x along y at fixed t
+        # Interpolate the data to higher resolution using RectBivariateSpline
+        f_T = RectBivariateSpline(y_sort, x_sort, T_r_)
+        T_r = f_T(Y_high_res[:, 0], X_high_res[0, :])
+        f_ux = RectBivariateSpline(y_sort, x_sort, ux_r_)
+        ux_r = f_ux(Y_high_res[:, 0], X_high_res[0, :])
+        
+        T_max = T_r.max(axis=0) # max of T along y at fixed t
+        ux_max = ux_r.max(axis=0) # max of u_x along y at fixed t
 
         # Plot T and u_x along y for fixed x
         cmap = plt.cm.viridis
         
         fig1, ax1 = plt.subplots(1, 2, figsize=(12, 4))
-        for i in range(nx)[::10]:
-            color = cmap(i / (nx - 1))  # Adjust the color according to column index
-            ax1[0].plot(y_sort, T_r[:, i], label=f"$x={x_sort[i]:1.2f}$", color=color) # plot T(y) for different x
+        for i in range(nx_high_res)[::25]:
+            color = cmap(i / (nx_high_res - 1))  # Adjust the color according to column index
+            ax1[0].plot(y_sort, T_r[:, i], label=f"$x={x_high_res[i]:1.2f}$", color=color) # plot T(y) for different x
             ax1[1].plot(y_sort, ux_r[:, i], color=color) # plot u_x(y) for different x
         #for i in range(nx)[::20]:
             #gauss = [ np.exp( -( y_ - Lx/4)**2/(0.0017*x[i]) ) for y_ in y_sort]
@@ -145,14 +162,13 @@ if __name__ == "__main__":
         ax1[0].legend(fontsize='small')
         [axi.set_xlabel("$y$") for axi in ax1]
         fig1.savefig(out_dir + '/fx.png', dpi=300)
-    
-    if True:
+        
         fig1a, ax1a = plt.subplots(1, 2, figsize=(12, 4))
-        for i in range(20,int(0.6*nx),2):
-            color = cmap(i / (nx - 1))  # Adjust the color according to column index
-            ax1a[0].plot(y_sort - Ly/4, 1-(T_r[:, i]/T_max_[i]), label=f"$x={x_sort[i]:1.2f}$", color=color) # plot T(y) for different x
-            ax1a[1].plot(y_sort - Ly/4, 1-(ux_r[:, i]/ux_max_[i]), color=color) # plot u_x(y) for different x
-        for i in range(nx)[::100]:
+        for i in range(nx_high_res)[::25]:
+            color = cmap(i / (nx_high_res - 1))  # Adjust the color according to column index
+            ax1a[0].plot(y_sort - Ly/4, 1-(T_r[:, i]/T_max[i]), label=f"$x={x_high_res[i]:1.2f}$", color=color) # plot T(y) for different x
+            ax1a[1].plot(y_sort - Ly/4, 1-(ux_r[:, i]/ux_max[i]), color=color) # plot u_x(y) for different x
+        for i in range(nx_high_res)[::400]:
             # color = cmap(i / (nx - 1))  # Adjust the color according to column index
             sigma = np.sqrt(0.0037*x[i])
             gaussT = [ ( y_)**2/(0.0057*x[i]) for y_ in y_sort]
@@ -169,15 +185,15 @@ if __name__ == "__main__":
         ax1a[1].loglog()
         ax1a[0].legend(fontsize='small')
         [axi.set_xlabel("$y$") for axi in ax1a]
-        #fig1.savefig(out_dir + '/fx.png', dpi=300)
+        fig1a.savefig(out_dir + '/fx_loglog.png', dpi=300)
         
         # Plot T and u_x along x for fixed y
         
         fig2, ax2 = plt.subplots(1, 2, figsize=(12, 4))
-        for i in range(ny)[::10]:
+        for i in range(ny)[::20]:
             color = cmap(i / (ny - 1))  # Adjust the color according to column index
-            ax2[0].plot(x_sort, T_r[i, :], label=f"$y={y_sort[i]:1.2f}$", color=color) # plot T(x) for different y
-            ax2[1].plot(x_sort, ux_r[i, :], color=color) # plot u_x(x) for different y
+            ax2[0].plot(x_high_res, T_r[i, :], label=f"$y={y_sort[i]:1.2f}$", color=color) # plot T(x) for different y
+            ax2[1].plot(x_high_res, ux_r[i, :], color=color) # plot u_x(x) for different y
         ax2[0].set_ylabel("$T$")
         ax2[1].set_ylabel("$u_x$")
         ax2[0].legend()
@@ -186,8 +202,8 @@ if __name__ == "__main__":
         
         # Plot max of T and u_x along x for fixed y
         fig3, ax3 = plt.subplots(1, 2, figsize=(12, 4))
-        ax3[0].plot(x_sort, T_max_)
-        ax3[1].plot(x_sort, ux_max_)
+        ax3[0].plot(x_high_res, T_max)
+        ax3[1].plot(x_high_res, ux_max)
         ax3[0].set_ylabel("$T_{max}(x)$")
         ax3[1].set_ylabel("$u_{x,max}(x)$")
         [axi.set_xlabel("$x$") for axi in ax3]
@@ -198,10 +214,10 @@ if __name__ == "__main__":
             # Plot colormaps of T at final state with levels
             figT, axT = plt.subplots(1, 1, figsize=(15, 3))
             
-            im_T = axT.pcolormesh(X, Y, T_r, vmin=0., vmax=1.) # plot of colormap of T
+            im_T = axT.pcolormesh(X_high_res, Y_high_res, T_r, vmin=0., vmax=1.) # plot of colormap of T
             cb_T = plt.colorbar(im_T, ax=axT, shrink=0.25) # colorbar
             #cb_T.ax.figure.set_size_inches(9, 3)
-            cs = axT.contour(X, Y, T_r, levels=levels, colors="k") # plot of different levels on the colormap
+            cs = axT.contour(X_high_res, Y_high_res, T_r, levels=levels, colors="k") # plot of different levels on the colormap
             axT.set_aspect("equal")
             axT.set_xlabel("$x$")
             axT.set_ylabel("$y$")
@@ -212,17 +228,19 @@ if __name__ == "__main__":
             plt.close()
         
             # Calculate uy
-            uy_r = -beta**-T_r * grad_py
+            uy_r_ = -beta**-T_r_ * grad_py
+            f_uy = RectBivariateSpline(y_sort, x_sort, uy_r_)
+            uy_r = f_uy(Y_high_res[:, 0], X_high_res[0, :])
             
             # Plot colormaps of ux and uy at final state
             figu, axu = plt.subplots(1, 2, figsize=(9, 3))
             
-            im_ux = axu[0].pcolormesh(X, Y, ux_r) # plot of colormap of ux
+            im_ux = axu[0].pcolormesh(X_high_res, Y_high_res, ux_r) # plot of colormap of ux
             cb_ux = plt.colorbar(im_ux, ax=axu[0]) # colorbar
             axu[0].set_title("$u_x$")
             [axi.set_xlabel("$x$") for axi in axu]
             
-            im_uy = axu[1].pcolormesh(X, Y, uy_r) # plot of colormap of ux
+            im_uy = axu[1].pcolormesh(X_high_res, Y_high_res, uy_r) # plot of colormap of ux
             cb_uy = plt.colorbar(im_uy, ax=axu[1]) # colorbar
             axu[1].set_title("$u_y$")
             [axi.set_ylabel("$y$") for axi in axu]
@@ -233,7 +251,7 @@ if __name__ == "__main__":
         plt.show()
         plt.close()
 
-    #xexit(0)
+    # exit(0)
     
     # Analyze time evolution
     
@@ -246,18 +264,26 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0] # Takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((ny, nx))
+        T_r_ = T_sorted.reshape((ny, nx))
 
         with h5py.File(dsets_p[t][0], "r") as h5f:
             p_[:] = h5f[dsets_p[t][1]][:, 0] # Takes values of p from the p-dictionary
         p_sorted = p_[sort_indices]
-        p_r = p_sorted.reshape((ny, nx))
+        p_r_ = p_sorted.reshape((ny, nx))
         
-        grad_py, grad_px = np.gradient(p_r, y_sort, x_sort) # gradient of p
-        ux_r = -beta**-T_r * grad_px # x-component of velocity field (u = beta^(-T) \nabla p)
-        uy_r = -beta**-T_r * grad_py # y-component of velocity field (u = beta^(-T) \nabla p)
+        grad_py, grad_px = np.gradient(p_r_, y_sort, x_sort) # gradient of p
+        ux_r_ = -beta**-T_r_ * grad_px # x-component of velocity field (u = beta^(-T) \nabla p)
+        uy_r_ = -beta**-T_r_ * grad_py # y-component of velocity field (u = beta^(-T) \nabla p)
         
-        cs = plt.contour(X, Y, T_r, levels=levels, colors="k") # plot of different levels on the colormap
+        # Interpolate the data to higher resolution using RectBivariateSpline
+        f_T = RectBivariateSpline(y_sort, x_sort, T_r_)
+        T_r = f_T(Y_high_res[:, 0], X_high_res[0, :])
+        f_ux = RectBivariateSpline(y_sort, x_sort, ux_r_)
+        ux_r = f_ux(Y_high_res[:, 0], X_high_res[0, :])
+        f_uy = RectBivariateSpline(y_sort, x_sort, uy_r_)
+        uy_r = f_uy(Y_high_res[:, 0], X_high_res[0, :])
+        
+        cs = plt.contour(X_high_res, Y_high_res, T_r, levels=levels, colors="k") # plot of different levels on the colormap
         paths = [] # curves formed by each level
         for level, path in zip(cs.levels, cs.get_paths()):
             if len(path.vertices): # if the path has non-null lenght
@@ -273,7 +299,7 @@ if __name__ == "__main__":
     
     # Plot umax vs t
     figumax, axumax = plt.subplots(1, 1)
-    axumax.plot(t_[1:len(it_)], umax[1:len(it_)]) # plot u_max vs t
+    axumax.plot(t_[1:n_steps], umax[1:n_steps]) # plot u_max vs t
     axumax.set_xlabel("$t$")
     axumax.set_ylabel("$u_{max}$")
     figumax.savefig(out_dir + f'/umax.jpg', dpi=300)
@@ -282,21 +308,33 @@ if __name__ == "__main__":
     umax_data =  np.column_stack(( t_[1:], umax[1:] ))
     np.savetxt(out_dir + f'/umax.txt', umax_data, fmt='%1.9f')
     
-    # Plot xmax, xmin, xspan, xratio vs t (and save in file .txt)
-    figf, axf = plt.subplots(1, 3, figsize=(20, 3))
+    cmap = plt.cm.viridis
+    figf, axf = plt.subplots(1, 3, figsize=(20, 4))
     figf.subplots_adjust(wspace=0.3)
+    figff, axff = plt.subplots(1, 1)
+    
+    eta = np.zeros(len(levels[1:-1])) # growth rates
+    i = 0
     for level in levels[1:-1]:
+    
+        # Plot xmax, xmin, xspan vs t
         color = cmap(level)
-        # print('level ', level, ' : ', color)
-        xbase = -lambda_ * math.log(level)
-        # axf[0].plot(t_, xmax[level], label=f"$T={level:1.2f}$") # plot xmax vs t for each level
-        axf[0].plot(t_[:len(it_)], xmax[level][:len(it_)], color=color) # plot xmax vs t for each level
-        axf[1].plot(t_[:len(it_)], xmin[level][:len(it_)], color=color) # plot xmin vs t for each level
-        axf[2].plot(t_[1:len(it_)], (xmax[level][1:len(it_)] - xmin[level][1:len(it_)]), label=f"$T={level:1.2f}$", color=color) # plot span vs t for each level
+        xbase = -math.log(level) / lambda_
+        axf[0].plot(t_[:n_steps], xmax[level][:n_steps], color=color) # plot xmax vs t for each level
+        axf[1].plot(t_[:n_steps], xmin[level][:n_steps], color=color) # plot xmin vs t for each level
+        axf[2].plot(t_[1:n_steps], (xmax[level][1:n_steps] - xmin[level][1:n_steps]), label=f"$T={level:1.2f}$", color=color) # plot span vs t for each level
         
-        # Save xspan, xratio vs t in file .txt
-        xspan_data =  np.column_stack(( t_[1:len(it_)], xmax[level][1:len(it_)] - xmin[level][1:len(it_)] ))
+        # Save xspan vs t in file .txt
+        xspan_data =  np.column_stack(( t_[1:n_steps], xmax[level][1:n_steps] - xmin[level][1:n_steps] ))
         np.savetxt(out_dir + f'/xspan_T={level:1.2f}.txt', xspan_data, fmt='%1.9f')
+        
+        # Plot xspan vs t at growing stage and find growth rates
+        n_i = int(n_steps * 5/t_end)
+        n_f = int(n_steps * 7.5/t_end)
+        axff.plot(t_[n_i:n_f], np.log(xmax[level][n_i:n_f] - xmin[level][n_i:n_f]), label=f"$T={level:1.2f}$", color=color)
+        model = LinearRegression().fit(t_[n_i:n_f].reshape((-1, 1)), np.log(xmax[level][n_i:n_f] - xmin[level][n_i:n_f]))
+        eta[i] = model.coef_[0]
+        i += 1
     
     axf[2].legend(fontsize='small')
     [axi.set_xlabel("$t$") for axi in axf]
@@ -305,4 +343,13 @@ if __name__ == "__main__":
     axf[2].set_ylabel("$x_{max}-x_{min}$")
     axf[2].semilogy()
     figf.savefig(out_dir + '/fingergrowth.png', dpi=300)
+    
+    axff.legend(fontsize='small')
+    axff.set_xlabel("$t$")
+    axff.set_ylabel("$x_{max}-x_{min}$")
+    figff.savefig(out_dir + '/xmax_growing.png', dpi=300)
+    
+    eta_data = np.column_stack(( levels[1:-1], eta ))
+    np.savetxt(out_dir + f'/growth_rates.txt', eta_data, fmt='%1.9f')
+    
     plt.show()

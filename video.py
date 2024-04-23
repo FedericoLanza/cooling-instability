@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib import tri
+from scipy.interpolate import RectBivariateSpline
 
 #def parse_args():
 #    parser = argparse.ArgumentParser(description="")
@@ -99,12 +100,17 @@ if __name__ == "__main__":
     # Prepare meshgrid
     x = nodes[:, 0]
     y = nodes[:, 1]
-    nx = len(np.unique(x))
-    ny = len(np.unique(y))
-    X, Y = np.meshgrid(np.unique(x), np.unique(y))
+    x_sort = np.unique(x)
+    y_sort = np.unique(y)
+    nx = len(x_sort)
+    ny = len(y_sort)
+    X, Y = np.meshgrid(x_sort, y_sort)
     
-    print('len(np.unique(x)) = ', len(np.unique(x)))
-    print('len(np.unique(y)) = ', len(np.unique(y)))
+    x_min = min(nodes[:, 0])
+    x_max = max(nodes[:, 0])
+    nx_high_res = 400
+    x_high_res = np.linspace(x_min, x_max, nx_high_res)
+    X_high_res, Y_high_res = np.meshgrid(x_high_res, y_sort)
     
     # Sort indices of nodes array
     sort_indices = np.lexsort((nodes[:, 0], nodes[:, 1]))
@@ -122,6 +128,8 @@ if __name__ == "__main__":
     # Initialize overall minimum and maximum values
     overall_min_ux = float('inf')
     overall_max_ux = float('-inf')
+    overall_min_uy = float('inf')
+    overall_max_uy = float('-inf')
     
     num_frames = len(t_)
     for frame in range(num_frames):
@@ -141,24 +149,38 @@ if __name__ == "__main__":
         
         grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
         ux_r = -beta**-T_r * grad_px
+        uy_r = -beta**-T_r * grad_py
         
-        overall_min_ux = min(overall_min_ux, np.min(ux_r))
-        overall_max_ux = max(overall_max_ux, np.max(ux_r))
+        f_ux = RectBivariateSpline(np.unique(y), np.unique(x), ux_r)
+        ux_r_high_res = f_ux(Y_high_res[:, 0], X_high_res[0, :])
+        
+        overall_min_ux = min(overall_min_ux, np.min(ux_r_high_res))
+        overall_max_ux = max(overall_max_ux, np.max(ux_r_high_res))
     
+        overall_min_uy = min(overall_min_uy, np.min(uy_r))
+        overall_max_uy = max(overall_max_uy, np.max(uy_r))
+        
     # Prepare figures for videos
     figT, axT = plt.subplots(1, 1, figsize=(15, 5))
     axT.set_xlabel("$x$")
     axT.set_ylabel("$y$")
     axT.set_title("$T(x,y)$")
-    im_T = axT.pcolormesh(X, Y, np.zeros_like(X), vmin=0., vmax=1.)
+    im_T = axT.pcolormesh(X_high_res, Y_high_res, np.zeros_like(X_high_res), vmin=0., vmax=1.)
     cb_T = plt.colorbar(im_T, ax=axT) # colorbar
     
-    figu, axu = plt.subplots(1, 1, figsize=(15, 5))
-    axu.set_xlabel("$x$")
-    axu.set_ylabel("$y$")
-    axu.set_title("$u_x(x,y)$")
-    im_ux = axu.pcolormesh(X, Y, np.zeros_like(X), vmin=overall_min_ux, vmax=overall_max_ux)
-    cb_ux = plt.colorbar(im_ux, ax=axu) # colorbar
+    figux, axux = plt.subplots(1, 1, figsize=(15, 5))
+    axux.set_xlabel("$x$")
+    axux.set_ylabel("$y$")
+    axux.set_title("$u_x(x,y)$")
+    im_ux = axux.pcolormesh(X_high_res, Y_high_res, np.zeros_like(X_high_res), vmin=overall_min_ux, vmax=overall_max_ux)
+    cb_ux = plt.colorbar(im_ux, ax=axux) # colorbar
+    
+    figuy, axuy = plt.subplots(1, 1, figsize=(15, 5))
+    axuy.set_xlabel("$x$")
+    axuy.set_ylabel("$y$")
+    axuy.set_title("$u_x(x,y)$")
+    #im_uy = axuy.pcolormesh(X, Y, np.zeros_like(X), vmin=overall_min_uy, vmax=overall_max_uy)
+    #cb_uy = plt.colorbar(im_uy, ax=axuy) # colorbar
     
     def update_T(frame):
         t = t_[frame]  # time at step it
@@ -174,7 +196,11 @@ if __name__ == "__main__":
         T_sorted = T_[sort_indices]
         T_r = T_sorted.reshape((ny, nx))
         
-        im_T = axT.pcolormesh(X, Y, T_r, vmin=0., vmax=1.) # plot of colormap of T
+        # Interpolate the data to higher resolution using RectBivariateSpline
+        f = RectBivariateSpline(y_sort, x_sort, T_r)
+        T_r_high_res = f(Y_high_res[:, 0], X_high_res[0, :])
+        
+        im_T = axT.pcolormesh(X_high_res, Y_high_res, T_r_high_res, vmin=0., vmax=1.) # plot of colormap of T
         
         general_title = f"$t = {t:1.2f}$, "
         if t < 0.1 and holdpert is False:
@@ -194,7 +220,7 @@ if __name__ == "__main__":
         print(f"it={frame} t={t}")
         
         #Clear previous steps
-        axu.clear()
+        axux.clear()
         
         # Update data for ux
         dset_T = dsets_T[t]  # T-dictionary at time t
@@ -209,13 +235,14 @@ if __name__ == "__main__":
         p_sorted = p_[sort_indices]
         p_r = p_sorted.reshape((ny, nx))
         
-        #print('len(p_r) = ', len(p_r))
-        #print('len(np.unique(x)) = ', len(np.unique(x)))
-        #print('len(np.unique(y)) = ', len(np.unique(y)))
-        
-        grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
+        grad_py, grad_px = np.gradient(p_r, y_sort, x_sort)
         ux_r = -beta**-T_r * grad_px
-        im_ux = axu.pcolormesh(X, Y, ux_r, vmin=overall_min_ux, vmax=overall_max_ux) # plot of colormap of ux
+        
+        # Interpolate the data to higher resolution using RectBivariateSpline
+        f = RectBivariateSpline(y_sort, x_sort, ux_r)
+        ux_r_high_res = f(Y_high_res[:, 0], X_high_res[0, :])
+        
+        im_ux = axux.pcolormesh(X_high_res, Y_high_res, ux_r_high_res, vmin=overall_min_ux, vmax=overall_max_ux) # plot of colormap of ux
         
         general_title = f"$t = {t:1.2f}$, "
         if t < 0.1 and holdpert is False:
@@ -225,13 +252,57 @@ if __name__ == "__main__":
                 general_title += f" $u_x(x=0) = u_0$"
             else:
                 general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
-        figu.suptitle(general_title)
+        figux.suptitle(general_title)
         
         return im_ux
+        
+    def update_uy(frame):
+        t = t_[frame]  # time at step it
+        print(f"it={frame} t={t}")
+        
+        #Clear previous steps
+        axuy.clear()
+        
+        # Update data for ux
+        dset_T = dsets_T[t]  # T-dictionary at time t
+        with h5py.File(dset_T[0], "r") as h5f:
+            T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
+        T_sorted = T_[sort_indices]
+        T_r = T_sorted.reshape((ny, nx))
+        
+        dset_p = dsets_p[t] # p-dictionary at time t
+        with h5py.File(dset_p[0], "r") as h5f:
+            p_[:] = h5f[dset_p[1]][:, 0] # takes values of p from the p-dictionary
+        p_sorted = p_[sort_indices]
+        p_r = p_sorted.reshape((ny, nx))
+        
+        grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
+        uy_r = -beta**-T_r * grad_py
+        
+        # Interpolate the data to higher resolution using RectBivariateSpline
+        f = RectBivariateSpline(y_sort, x_sort, ux_r)
+        uy_r_high_res = f(Y_high_res[:, 0], X_high_res[0, :])
+        
+        im_uy = axuy.pcolormesh(X_high_res, Y_high_res, uy_r_high_res, vmin=overall_min_uy, vmax=overall_max_uy) # plot of colormap of ux
+        
+        general_title = f"$t = {t:1.2f}$, "
+        if t < 0.1 and holdpert is False:
+            general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        else:
+            if holdpert is False:
+                general_title += f" $u_x(x=0) = u_0$"
+            else:
+                general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        figuy.suptitle(general_title)
+        
+        return im_uy
     
     print('making video for T')
     animation_T = FuncAnimation(figT, update_T, frames=num_frames, blit=False)
     animation_T.save(out_dir + '/T.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
     print('making video for ux')
-    animation_ux = FuncAnimation(figu, update_ux, frames=num_frames, blit=False)
+    animation_ux = FuncAnimation(figux, update_ux, frames=num_frames, blit=False)
     animation_ux.save(out_dir + '/ux.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
+    print('making video for uy')
+    animation_ux = FuncAnimation(figuy, update_uy, frames=num_frames, blit=False)
+    animation_ux.save(out_dir + '/uy.mp4', fps=10, extra_args=['-vcodec', 'libx264'])

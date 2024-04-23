@@ -64,7 +64,7 @@ start_time = time.time()
 if __name__ == "__main__":
     
     Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
-    Ny = 200 # number of tiles along y ( = Number of divisions along the y-axis)
+    Ny = 336 # number of tiles along y ( = Number of divisions along the y-axis)
     
     # Global parameters
     Pe = args.Pe # Peclet number
@@ -113,8 +113,8 @@ if __name__ == "__main__":
     alpha = 2
     #mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny, diagonal=dfx.cpp.mesh.DiagonalType.right)
     mesh = create_unit_square(MPI.COMM_WORLD, Nx, Ny, cell_type=CellType.quadrilateral, diagonal=dfx.cpp.mesh.DiagonalType.left)
-    #mesh.geometry.x[:, 0] = mesh_warp_x(mesh.geometry.x[:, 0]) * Lx
-    mesh.geometry.x[:, 0] *= Lx
+    mesh.geometry.x[:, 0] = mesh_warp_x(mesh.geometry.x[:, 0]) * Lx
+    #mesh.geometry.x[:, 0] *= Lx
     mesh.geometry.x[:, 1] *= Ly
     
     # Define the finite element function spaces
@@ -234,7 +234,7 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_uniform_mesh/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
     xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")

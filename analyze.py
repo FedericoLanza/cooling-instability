@@ -11,7 +11,7 @@ from matplotlib import tri
 from scipy.interpolate import RectBivariateSpline
 from sklearn.linear_model import LinearRegression
 
-#ciao
+# ciao
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
@@ -110,7 +110,9 @@ if __name__ == "__main__":
     u_ = np.zeros((len(elems), 2)) # velocity field
 
     n_steps = len(it_)
-    t_end = 50.01 # have to be updated manually
+    dt_save = 0.05
+    t_end = n_steps*dt_save
+    print(t_end)
     levels = np.linspace(0, 1, 11) # levels of T
     xmax = dict([(level, np.zeros_like(t_)) for level in levels]) # max x-position of a level for all time steps, for all levels
     xmin = dict([(level, np.zeros_like(t_)) for level in levels]) # min x-position of a level for all time steps, for all levels
@@ -177,13 +179,13 @@ if __name__ == "__main__":
             #cauchyux = [ 1/((1 + (y_/sigma)**2 )) for y_ in y_sort]
             ax1a[0].plot(y_sort, gaussT, linestyle='dotted', color='black')
             ax1a[1].plot(y_sort, gaussux, linestyle='dotted', color='black')
-        ax1a[0].set_ylabel("$T$")
-        ax1a[1].set_ylabel("$u_x$")
+        ax1a[0].set_ylabel("$1 - T(y-y_0)/T_m$")
+        ax1a[1].set_ylabel("$1 - u_x(y-y_0)/u_m$")
         #ax1a[0].semilogy()
         #ax1a[1].semilogy()
         ax1a[0].loglog()
         ax1a[1].loglog()
-        ax1a[0].legend(fontsize='small')
+        #ax1a[0].legend(fontsize='small')
         [axi.set_xlabel("$y$") for axi in ax1a]
         fig1a.savefig(out_dir + '/fx_loglog.png', dpi=300)
         
@@ -215,7 +217,7 @@ if __name__ == "__main__":
             figT, axT = plt.subplots(1, 1, figsize=(15, 3))
             
             im_T = axT.pcolormesh(X_high_res, Y_high_res, T_r, vmin=0., vmax=1.) # plot of colormap of T
-            cb_T = plt.colorbar(im_T, ax=axT, shrink=0.25) # colorbar
+            cb_T = plt.colorbar(im_T, ax=axT, shrink=0.5) # colorbar
             #cb_T.ax.figure.set_size_inches(9, 3)
             cs = axT.contour(X_high_res, Y_high_res, T_r, levels=levels, colors="k") # plot of different levels on the colormap
             axT.set_aspect("equal")
@@ -251,7 +253,7 @@ if __name__ == "__main__":
         plt.show()
         plt.close()
 
-    # exit(0)
+    exit(0)
     
     # Analyze time evolution
     
@@ -302,6 +304,7 @@ if __name__ == "__main__":
     axumax.plot(t_[1:n_steps], umax[1:n_steps]) # plot u_max vs t
     axumax.set_xlabel("$t$")
     axumax.set_ylabel("$u_{max}$")
+    axumax.semilogy()
     figumax.savefig(out_dir + f'/umax.jpg', dpi=300)
     
     # Save umax vs t in file .txt
@@ -313,7 +316,8 @@ if __name__ == "__main__":
     figf.subplots_adjust(wspace=0.3)
     figff, axff = plt.subplots(1, 1)
     
-    eta = np.zeros(len(levels[1:-1])) # growth rates
+    gamma_ = np.zeros(len(levels[1:-1])) # growth rate for each level
+    tstat_ = np.zeros(len(levels[1:-1])) # time to reach the stationary state for each level
     i = 0
     for level in levels[1:-1]:
     
@@ -328,12 +332,14 @@ if __name__ == "__main__":
         xspan_data =  np.column_stack(( t_[1:n_steps], xmax[level][1:n_steps] - xmin[level][1:n_steps] ))
         np.savetxt(out_dir + f'/xspan_T={level:1.2f}.txt', xspan_data, fmt='%1.9f')
         
-        # Plot xspan vs t at growing stage and find growth rates
-        n_i = int(n_steps * 5/t_end)
+        # Plot xspan vs t at growing stage and find gamma and tstat
+        n_i = int(n_steps * 3/t_end)
         n_f = int(n_steps * 7.5/t_end)
         axff.plot(t_[n_i:n_f], np.log(xmax[level][n_i:n_f] - xmin[level][n_i:n_f]), label=f"$T={level:1.2f}$", color=color)
         model = LinearRegression().fit(t_[n_i:n_f].reshape((-1, 1)), np.log(xmax[level][n_i:n_f] - xmin[level][n_i:n_f]))
-        eta[i] = model.coef_[0]
+        xspan_sat = xmax[level][n_steps-1] - xmin[level][n_steps-1] # stationary value for xspan
+        gamma_[i] = model.coef_[0]
+        tstat_[i] = (np.log(xspan_sat) - model.intercept_)/ model.coef_[0]
         i += 1
     
     axf[2].legend(fontsize='small')
@@ -344,12 +350,14 @@ if __name__ == "__main__":
     axf[2].semilogy()
     figf.savefig(out_dir + '/fingergrowth.png', dpi=300)
     
-    axff.legend(fontsize='small')
+    #axff.legend(fontsize='small')
     axff.set_xlabel("$t$")
-    axff.set_ylabel("$x_{max}-x_{min}$")
+    axff.set_ylabel("$\log(x_{max}-x_{min})$")
     figff.savefig(out_dir + '/xmax_growing.png', dpi=300)
     
-    eta_data = np.column_stack(( levels[1:-1], eta ))
-    np.savetxt(out_dir + f'/growth_rates.txt', eta_data, fmt='%1.9f')
+    gamma_data = np.column_stack(( levels[1:-1], gamma_ ))
+    np.savetxt(out_dir + f'/growth_rates.txt', gamma_data, fmt='%1.9f')
+    tstat_data = np.column_stack(( levels[1:-1], tstat_ ))
+    np.savetxt(out_dir + f'/tstat.txt', tstat_data, fmt='%1.9f')
     
     plt.show()

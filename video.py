@@ -179,8 +179,8 @@ if __name__ == "__main__":
     axuy.set_xlabel("$x$")
     axuy.set_ylabel("$y$")
     axuy.set_title("$u_x(x,y)$")
-    #im_uy = axuy.pcolormesh(X, Y, np.zeros_like(X), vmin=overall_min_uy, vmax=overall_max_uy)
-    #cb_uy = plt.colorbar(im_uy, ax=axuy) # colorbar
+    im_uy = axuy.pcolormesh(X, Y, np.zeros_like(X), vmin=overall_min_uy, vmax=overall_max_uy)
+    cb_uy = plt.colorbar(im_uy, ax=axuy) # colorbar
     
     def update_T(frame):
         t = t_[frame]  # time at step it
@@ -188,6 +188,10 @@ if __name__ == "__main__":
         
         #Clear previous steps
         axT.clear()
+        
+        axT.set_xlabel("$x$")
+        axT.set_ylabel("$y$")
+        axT.set_title("$T(x,y)$")
         
         #Update data for T
         dset_T = dsets_T[t]  # T-dictionary at time t
@@ -221,6 +225,10 @@ if __name__ == "__main__":
         
         #Clear previous steps
         axux.clear()
+        
+        axux.set_xlabel("$x$")
+        axux.set_ylabel("$y$")
+        axux.set_title("$u_x(x,y)$")
         
         # Update data for ux
         dset_T = dsets_T[t]  # T-dictionary at time t
@@ -263,6 +271,10 @@ if __name__ == "__main__":
         #Clear previous steps
         axuy.clear()
         
+        axuy.set_xlabel("$x$")
+        axuy.set_ylabel("$y$")
+        axuy.set_title("$u_y(x,y)$")
+        
         # Update data for ux
         dset_T = dsets_T[t]  # T-dictionary at time t
         with h5py.File(dset_T[0], "r") as h5f:
@@ -276,7 +288,7 @@ if __name__ == "__main__":
         p_sorted = p_[sort_indices]
         p_r = p_sorted.reshape((ny, nx))
         
-        grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
+        grad_py, grad_px = np.gradient(p_r, y_sort, x_sort)
         uy_r = -beta**-T_r * grad_py
         
         # Interpolate the data to higher resolution using RectBivariateSpline

@@ -15,6 +15,12 @@ def read_halfway_value(file_path):
         lines = file.readlines()
         halfway_line = lines[4].strip().split()
         return halfway_line[1] if len(halfway_line) >= 2 else None
+        
+def read_selected_value(file_path, i):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        selected_line = lines[i].strip().split()
+        return selected_line[1] if len(selected_line) >= 2 else None
 
 if __name__ == "__main__":
 
@@ -38,30 +44,38 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    Ly_ = [pow(2,a) for a in np.arange(0., 4., 0.25)] # List of wavelengths
+    Ly_ = [pow(2,a) for a in np.arange(0., 4.25, 0.25)] # List of wavelengths
     print("Ly_ = ", Ly_)
     T_ = [0.1 * n for n in range(1, 10)] # List of temperature levels
     Ly_umax = [] # List of wavelenghts for umax
     umax_ = [] # List of max velocities at stationary state
     Ly_gamma = [] # List of wavelenghts for gamma
     gamma_ = [] # List of growth rates
+    Ly_tstat = [] # List of wavelenghts for gamma
+    tstat_ = [] # List of growth rates
     
     # Input files
     file_umax = f"umax.txt"
     file_gamma = f"growth_rates.txt"
+    file_tstat = f"tstat.txt"
     
     # Prepare output files
     with open(f"results/umax_vs_lambda.txt", 'w') as output_file:
             output_file.write("Ly\t umax\n")
     with open(f"results/gamma_vs_lambda.txt", 'w') as output_file:
             output_file.write("Ly\t gamma\n")
+    with open(f"results/tstat_vs_lambda.txt", 'w') as output_file:
+            output_file.write("Ly\t tstat\n")
     for T in T_:
         with open(f"results/xspan_vs_lambda_T={T:.2f}.txt", 'w') as output_file:
                 output_file.write("Ly\t xspan\n")
     
     fig_umax, ax_umax = plt.subplots(1, 1)
     fig_gamma, ax_gamma = plt.subplots(1, 1)
+    fig_tstat, ax_tstat = plt.subplots(1, 1)
     fig_xspan, ax_xspan = plt.subplots(1, 1)
+    fig_gamma2, ax_gamma2 = plt.subplots(1, 1)
+    fig_tstat2, ax_tstat2 = plt.subplots(1, 1)
     
     # Extract umax and gamma from every Ly analyzed and save it
     for Ly in Ly_:
@@ -70,6 +84,7 @@ if __name__ == "__main__":
         print(folder_name)
         path_umax = os.path.join(folder_name, file_umax)
         path_gamma = os.path.join(folder_name, file_gamma)
+        path_tstat = os.path.join(folder_name, file_tstat)
         
         if os.path.exists(folder_name):
             # Extract umax
@@ -83,14 +98,23 @@ if __name__ == "__main__":
             # Extract gamma
             if os.path.isfile(path_gamma):
                 Ly_gamma.append(Ly) # add this value to the list of Ly explored
-                gamma_last = read_halfway_value(path_gamma)
-                if gamma_last is not None:
-                    gamma_.append(float(gamma_last))
+                gamma_str = read_halfway_value(path_gamma)
+                if gamma_str is not None:
+                    gamma_.append(float(gamma_str))
                     with open(f"results/gamma_vs_lambda.txt", 'a') as output_file:
-                            output_file.write(f"{Ly}\t{gamma_last}\n")
+                            output_file.write(f"{Ly}\t{gamma_str}\n")
+            # Extract tstat
+            if os.path.isfile(path_tstat):
+                Ly_tstat.append(Ly) # add this value to the list of Ly explored
+                tstat_str = read_halfway_value(path_tstat)
+                if tstat_str is not None:
+                    tstat_.append(float(tstat_str))
+                    with open(f"results/tstat_vs_lambda.txt", 'a') as output_file:
+                            output_file.write(f"{Ly}\t{tstat_str}\n")
                         
     ax_umax.scatter(Ly_umax, umax_, label="holdpert_False") # Plot umax vs Ly
     ax_gamma.scatter(Ly_gamma, gamma_, label="holdpert_False") # Plot gamma vs Ly
+    ax_tstat.scatter(Ly_tstat, tstat_, label="holdpert_False") # Plot tstat vs Ly
     
     #exit(0)
     
@@ -103,6 +127,8 @@ if __name__ == "__main__":
     
         xbase = -lambda_ * math.log(T)
         xspan_ = [] # List of values of xspan at stationary state
+        gamma2_ = []
+        tstat2_ = []
         
         file_xspan = f"xspan_T={T:.2f}.txt" # input file
         for Ly in Ly_:
@@ -110,6 +136,8 @@ if __name__ == "__main__":
             Ly_str = f"Ly_{Ly:.10g}".format(Ly)
             folder_name = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/"
             path_xspan = os.path.join(folder_name, file_xspan)
+            path_gamma = os.path.join(folder_name, file_gamma)
+            path_tstat = os.path.join(folder_name, file_tstat)
             
             if os.path.exists(folder_name): # Check if the folder exists
                 # Extract xspan
@@ -118,15 +146,31 @@ if __name__ == "__main__":
                         Ly_xspan.append(Ly) # add this value to the list of Ly explored
                     xspan_last = read_last_value(path_xspan)
                     if xspan_last is not None:
-                            xspan_.append(float(xspan_last))
-                            with open(f"results/xspan_vs_lambda_T={T:.2f}.txt", 'a') as output_file:
-                                output_file.write(f"{Ly}\t{xspan_last}\n")
+                        xspan_.append(float(xspan_last))
+                        with open(f"results/xspan_vs_lambda_T={T:.2f}.txt", 'a') as output_file:
+                            output_file.write(f"{Ly}\t{xspan_last}\n")
+                # Extract all gamma
+                if os.path.isfile(path_gamma):  # Check if the data were analyzed
+                    #if i==0:
+                    #    Ly_xspan.append(Ly) # add this value to the list of Ly explored
+                    gamma_sel = read_selected_value(path_gamma, i)
+                    if gamma_sel is not None:
+                        gamma2_.append(float(gamma_sel))
+                # Extract all gamma
+                if os.path.isfile(path_tstat):  # Check if the data were analyzed
+                    #if i==0:
+                    #    Ly_xspan.append(Ly) # add this value to the list of Ly explored
+                    tstat_sel = read_selected_value(path_tstat, i)
+                    if tstat_sel is not None:
+                        tstat2_.append(float(tstat_sel))
         ax_xspan.scatter(Ly_xspan, xspan_, label=f"T={T:.2f}", color=color_dict[T]) # Plot xspan vs Ly for this T
+        ax_gamma2.scatter(Ly_gamma, gamma2_, label=f"T={T:.2f}", color=color_dict[T]) # Plot gamma vs Ly for this T
+        ax_tstat2.scatter(Ly_tstat, tstat2_, label=f"T={T:.2f}", color=color_dict[T]) # Plot tstat vs Ly for this T
 
     ax_umax.set_xscale('log')
     ax_umax.set_yscale('log')
     ax_umax.set_xlabel("$\lambda$")
-    ax_umax.set_ylabel("$(u_{max})_{\text{sat}}$")
+    ax_umax.set_ylabel("$u^{\max}_{st}$")
     fig_umax.savefig('results/umax_vs_lambda.png', dpi=300)
     
     ax_gamma.set_xscale('log')
@@ -135,12 +179,32 @@ if __name__ == "__main__":
     ax_gamma.set_ylabel("$\gamma$")
     fig_gamma.savefig('results/gamma_vs_lambda.png', dpi=300)
     
+    ax_tstat.set_xscale('log')
+    ax_tstat.set_yscale('log')
+    ax_tstat.set_xlabel("$\lambda$")
+    ax_tstat.set_ylabel("$t_{st}$")
+    fig_tstat.savefig('results/tstat_vs_lambda.png', dpi=300)
+    
     ax_xspan.set_xscale('log')
     ax_xspan.set_yscale('log')
     ax_xspan.set_xlabel("$\lambda$")
-    ax_xspan.set_ylabel("$(x_{max} - x_{min})_{\text{sat}}$")
+    ax_xspan.set_ylabel("$(x_{max} - x_{min})_{st}$")
     ax_xspan.legend()
-    fig_gamma.savefig('results/xspan_vs_lambda.png', dpi=300)
+    fig_xspan.savefig('results/xspan_vs_lambda.png', dpi=300)
+    
+    ax_gamma2.set_xscale('log')
+    ax_gamma2.set_yscale('log')
+    ax_gamma2.set_xlabel("$\lambda$")
+    ax_gamma2.set_ylabel("$\gamma$")
+    ax_gamma2.legend()
+    fig_gamma2.savefig('results/gamma_vs_lambda_all.png', dpi=300)
+    
+    ax_tstat2.set_xscale('log')
+    ax_tstat2.set_yscale('log')
+    ax_tstat2.set_xlabel("$\lambda$")
+    ax_tstat2.set_ylabel("$t_{st}$")
+    ax_tstat2.legend()
+    fig_tstat2.savefig('results/tstat_vs_lambda_all.png', dpi=300)
     
     #plt.scale
     

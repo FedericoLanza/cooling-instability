@@ -63,8 +63,8 @@ start_time = time.time()
 
 if __name__ == "__main__":
     
-    Nx = 140 # number of tiles along x ( = Number of divisions along the x-axis)
-    Ny = 400 # number of tiles along y ( = Number of divisions along the y-axis)
+    Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
+    Ny = 200 # number of tiles along y ( = Number of divisions along the y-axis)
     
     # Global parameters
     Pe = args.Pe # Peclet number
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     dt = 0.005 # time interval
     t = 0. # starting time
     t_pert = 0.1 # perturbation time
-    t_end = 75.01 # final time
+    t_end = 50.01 # final time
     dump_intv = 10 # saving interval
 
     rtol = 1e-14 # tolerance for solving linear problem

@@ -152,7 +152,7 @@ if __name__ == "__main__":
         cmap = plt.cm.viridis
         
         fig1, ax1 = plt.subplots(1, 2, figsize=(12, 4))
-        for i in range(nx_high_res)[::25]:
+        for i in range(nx_high_res)[::100]:
             color = cmap(i / (nx_high_res - 1))  # Adjust the color according to column index
             ax1[0].plot(y_sort, T_r[:, i], label=f"$x={x_high_res[i]:1.2f}$", color=color) # plot T(y) for different x
             ax1[1].plot(y_sort, ux_r[:, i], color=color) # plot u_x(y) for different x
@@ -163,36 +163,36 @@ if __name__ == "__main__":
         ax1[1].set_ylabel("$u_x$")
         ax1[0].legend(fontsize='small')
         [axi.set_xlabel("$y$") for axi in ax1]
-        fig1.savefig(out_dir + '/fx.png', dpi=300)
+        #fig1.savefig(out_dir + '/fx.png', dpi=300)
         
         fig1a, ax1a = plt.subplots(1, 2, figsize=(12, 4))
         for i in range(nx_high_res)[::25]:
             color = cmap(i / (nx_high_res - 1))  # Adjust the color according to column index
-            ax1a[0].plot(y_sort - Ly/4, 1-(T_r[:, i]/T_max[i]), label=f"$x={x_high_res[i]:1.2f}$", color=color) # plot T(y) for different x
-            ax1a[1].plot(y_sort - Ly/4, 1-(ux_r[:, i]/ux_max[i]), color=color) # plot u_x(y) for different x
+            ax1a[0].plot(np.log(y_sort - Ly/4), np.log(1-(T_r[:, i]/T_max[i])), label=f"$x={x_high_res[i]:1.2f}$", color=color) # plot T(y) for different x
+            ax1a[1].plot(np.log(y_sort - Ly/4), np.log(1-(ux_r[:, i]/ux_max[i])), color=color) # plot u_x(y) for different x
         for i in range(nx_high_res)[::400]:
             # color = cmap(i / (nx - 1))  # Adjust the color according to column index
             sigma = np.sqrt(0.0037*x[i])
-            gaussT = [ ( y_)**2/(0.0057*x[i]) for y_ in y_sort]
-            gaussux = [ ( y_)**2/(0.0017*x[i]) for y_ in y_sort]
+            gaussT = [ 2*(y_) - (-5+0.0057*x[i]) for y_ in np.linspace(-5,0,40)]
+            gaussux = [ 2*(y_) - (-5+0.0007*x[i]) for y_ in np.linspace(-5,0,40)]
             #cauchyT = [ 1/((1 + (y_/sigma)**2 )) for y_ in y_sort]
             #cauchyux = [ 1/((1 + (y_/sigma)**2 )) for y_ in y_sort]
-            ax1a[0].plot(y_sort, gaussT, linestyle='dotted', color='black')
-            ax1a[1].plot(y_sort, gaussux, linestyle='dotted', color='black')
-        ax1a[0].set_ylabel("$1 - T(y-y_0)/T_m$")
-        ax1a[1].set_ylabel("$1 - u_x(y-y_0)/u_m$")
+            ax1a[0].plot(np.linspace(-5,0,40), gaussT, linestyle='dotted', color='black')
+            ax1a[1].plot(np.linspace(-5,0,40), gaussux, linestyle='dotted', color='black')
+        ax1a[0].set_ylabel("$\log(1 - T(y')/T_m)$")
+        ax1a[1].set_ylabel("$\log(1 - u_x(y')/u_m)$")
         #ax1a[0].semilogy()
         #ax1a[1].semilogy()
-        ax1a[0].loglog()
-        ax1a[1].loglog()
+        #ax1a[0].loglog()
+        #ax1a[1].loglog()
         #ax1a[0].legend(fontsize='small')
-        [axi.set_xlabel("$y$") for axi in ax1a]
+        [axi.set_xlabel("$\log(y')$") for axi in ax1a]
         fig1a.savefig(out_dir + '/fx_loglog.png', dpi=300)
         
         # Plot T and u_x along x for fixed y
         
         fig2, ax2 = plt.subplots(1, 2, figsize=(12, 4))
-        for i in range(ny)[::20]:
+        for i in range(ny)[::25]:
             color = cmap(i / (ny - 1))  # Adjust the color according to column index
             ax2[0].plot(x_high_res, T_r[i, :], label=f"$y={y_sort[i]:1.2f}$", color=color) # plot T(x) for different y
             ax2[1].plot(x_high_res, ux_r[i, :], color=color) # plot u_x(x) for different y

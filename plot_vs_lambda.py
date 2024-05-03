@@ -167,8 +167,8 @@ if __name__ == "__main__":
         ax_gamma2.scatter(Ly_gamma, gamma2_, label=f"T={T:.2f}", color=color_dict[T]) # Plot gamma vs Ly for this T
         ax_tstat2.scatter(Ly_tstat, tstat2_, label=f"T={T:.2f}", color=color_dict[T]) # Plot tstat vs Ly for this T
 
-    ax_umax.set_xscale('log')
-    ax_umax.set_yscale('log')
+    #ax_umax.set_xscale('log')
+    #ax_umax.set_yscale('log')
     ax_umax.set_xlabel("$\lambda$")
     ax_umax.set_ylabel("$u^{\max}_{st}$")
     fig_umax.savefig('results/umax_vs_lambda.png', dpi=300)

@@ -61,18 +61,18 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str]) + ".0" # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
-    ufile = os.path.join(out_dir, "u.xdmf")
+    #ufile = os.path.join(out_dir, "u.xdmf")
     pfile = os.path.join(out_dir, "p.xdmf")
 
     dsets_T, topology_address, geometry_address = parse_xdmf(Tfile, get_mesh_address=True) # extracts data from T.xdmf file
     dsets_T = dict(dsets_T) # converts data of T in a standard dictionary
 
-    dsets_u = parse_xdmf(ufile, get_mesh_address=False) # extracts data from u.xdmf file
-    dsets_u = dict(dsets_u)
+    # dsets_u = parse_xdmf(ufile, get_mesh_address=False) # extracts data from u.xdmf file
+    # dsets_u = dict(dsets_u)
 
     dsets_p = parse_xdmf(pfile, get_mesh_address=False) # extracts data from p.xdmf file
     dsets_p = dict(dsets_p)
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     T_ = np.zeros_like(nodes[:, 0]) # temperature field
     p_ = np.zeros_like(T_) # pressure field
-    u_ = np.zeros((len(elems), 2)) # velocity field
+    # u_ = np.zeros((len(elems), 2)) # velocity field
 
     n_steps = len(it_)
     dt_save = 0.05

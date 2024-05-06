@@ -217,12 +217,12 @@ if __name__ == "__main__":
                               petsc_options={"ksp_type": "bcgs", "ksp_rtol": rtol, "pc_type": "jacobi"})
     
     # Project u for visualization (only used for steps multiple of dump_intv)
-    F_u = ufl.dot(u - u_, v) * ufl.dx
+    #F_u = ufl.dot(u - u_, v) * ufl.dx
     
-    a_u = ufl.lhs(F_u)
-    L_u = ufl.rhs(F_u)
+    #a_u = ufl.lhs(F_u)
+    #L_u = ufl.rhs(F_u)
     
-    problem_u = LinearProblem(a_u, L_u, mpc_u, bcs=[])
+    #problem_u = LinearProblem(a_u, L_u, mpc_u, bcs=[])
     
     # Prepare files for saving
     Pe_str = f"Pe_{Pe:.10g}"
@@ -275,16 +275,16 @@ if __name__ == "__main__":
             xdmff_p.write_function(p_, t)
 
             # Project u for visualization
-            u_h = problem_u.solve()
-            u_h.name = "u"
-            xdmff_u.write_function(u_h, t)
+            #u_h = problem_u.solve()
+            #u_h.name = "u"
+            #xdmff_u.write_function(u_h, t)
 
         t += dt
         it += 1
         
     xdmff_T.close()
     xdmff_p.close()
-    xdmff_u.close()
+    #xdmff_u.close()
 
 end_time = time.time()
 elapsed_time = end_time - start_time

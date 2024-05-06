@@ -67,14 +67,14 @@ if __name__ == "__main__":
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
-    ufile = os.path.join(out_dir, "u.xdmf")
+    #ufile = os.path.join(out_dir, "u.xdmf")
     pfile = os.path.join(out_dir, "p.xdmf")
 
     dsets_T, topology_address, geometry_address = parse_xdmf(Tfile, get_mesh_address=True) # extracts dataset and paths for topology and geometry from T.xdmf file
     dsets_T = dict(dsets_T) # converts data of T in a standard dictionary
 
-    dsets_u = parse_xdmf(ufile, get_mesh_address=False) # extracts data from u.xdmf file
-    dsets_u = dict(dsets_u)
+    #dsets_u = parse_xdmf(ufile, get_mesh_address=False) # extracts data from u.xdmf file
+    #dsets_u = dict(dsets_u)
 
     dsets_p = parse_xdmf(pfile, get_mesh_address=False) # extracts data from p.xdmf file
     dsets_p = dict(dsets_p)
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     
     T_ = np.zeros_like(nodes[:, 0]) # temperature field
     p_ = np.zeros_like(T_) # pressure field
-    u_ = np.zeros((len(elems), 2)) # velocity field
+    #u_ = np.zeros((len(elems), 2)) # velocity field
     
     # Initialize overall minimum and maximum values
     overall_min_ux = float('inf')

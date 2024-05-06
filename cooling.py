@@ -64,7 +64,7 @@ start_time = time.time()
 if __name__ == "__main__":
     
     Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
-    Ny = 200 # number of tiles along y ( = Number of divisions along the y-axis)
+    Ny = int(100*Ly) # number of tiles along y ( = Number of divisions along the y-axis). Proportional to the length Ly to be coherent in resolution between simulations with different Ly
     
     # Global parameters
     Pe = args.Pe # Peclet number

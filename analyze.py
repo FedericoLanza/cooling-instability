@@ -152,7 +152,7 @@ if __name__ == "__main__":
         cmap = plt.cm.viridis
         
         fig1, ax1 = plt.subplots(1, 2, figsize=(12, 4))
-        for i in range(nx_high_res)[::100]:
+        for i in range(nx_high_res)[::25]:
             color = cmap(i / (nx_high_res - 1))  # Adjust the color according to column index
             ax1[0].plot(y_sort, T_r[:, i], label=f"$x={x_high_res[i]:1.2f}$", color=color) # plot T(y) for different x
             ax1[1].plot(y_sort, ux_r[:, i], color=color) # plot u_x(y) for different x
@@ -173,8 +173,8 @@ if __name__ == "__main__":
         for i in range(nx_high_res)[::400]:
             # color = cmap(i / (nx - 1))  # Adjust the color according to column index
             sigma = np.sqrt(0.0037*x[i])
-            gaussT = [ 2*(y_) - (-5+0.0057*x[i]) for y_ in np.linspace(-5,0,40)]
-            gaussux = [ 2*(y_) - (-5+0.0007*x[i]) for y_ in np.linspace(-5,0,40)]
+            gaussT = [ 2*(y_) - (-5 + 0.0057*x[i]) for y_ in np.linspace(-5,0,40)]
+            gaussux = [ 2*(y_) - (-5 + 0.0007*x[i]) for y_ in np.linspace(-5,0,40)]
             #cauchyT = [ 1/((1 + (y_/sigma)**2 )) for y_ in y_sort]
             #cauchyux = [ 1/((1 + (y_/sigma)**2 )) for y_ in y_sort]
             ax1a[0].plot(np.linspace(-5,0,40), gaussT, linestyle='dotted', color='black')
@@ -203,6 +203,7 @@ if __name__ == "__main__":
         fig2.savefig(out_dir + '/fy.png', dpi=300)
         
         # Plot max of T and u_x along x for fixed y
+        
         fig3, ax3 = plt.subplots(1, 2, figsize=(12, 4))
         ax3[0].plot(x_high_res, T_max)
         ax3[1].plot(x_high_res, ux_max)
@@ -218,12 +219,10 @@ if __name__ == "__main__":
             
             im_T = axT.pcolormesh(X_high_res, Y_high_res, T_r, vmin=0., vmax=1.) # plot of colormap of T
             cb_T = plt.colorbar(im_T, ax=axT, shrink=0.5) # colorbar
-            #cb_T.ax.figure.set_size_inches(9, 3)
             cs = axT.contour(X_high_res, Y_high_res, T_r, levels=levels, colors="k") # plot of different levels on the colormap
             axT.set_aspect("equal")
             axT.set_xlabel("$x$")
             axT.set_ylabel("$y$")
-            #figT.set_tight_layout(True)
             figT.suptitle(f"Final state ($t = {t:1.2f}$)")
             figT.savefig(out_dir + '/Tlevelmap.png', dpi=300)
             plt.show()
@@ -253,7 +252,7 @@ if __name__ == "__main__":
         plt.show()
         plt.close()
 
-    exit(0)
+    #exit(0)
     
     # Analyze time evolution
     

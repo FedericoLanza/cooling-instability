@@ -3,3 +3,6 @@
 
 # Ignore all .sh files
 *.sh
+
+# Ignore all .out files
+*.out

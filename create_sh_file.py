@@ -1,3 +1,5 @@
+# Create .sh file for "cooling.py" and execute the job in it
+
 import argparse
 import subprocess
 

@@ -163,7 +163,7 @@ if __name__ == "__main__":
         ax1[1].set_ylabel("$u_x$")
         ax1[0].legend(fontsize='small')
         [axi.set_xlabel("$y$") for axi in ax1]
-        #fig1.savefig(out_dir + '/fx.png', dpi=300)
+        fig1.savefig(out_dir + '/fx.png', dpi=300)
         
         fig1a, ax1a = plt.subplots(1, 2, figsize=(12, 4))
         for i in range(nx_high_res)[::25]:

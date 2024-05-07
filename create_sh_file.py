@@ -16,19 +16,19 @@ def parse_args():
     parser.add_argument('--manyLy', action='store_true', help='Flag for starting jobs with multiple Ly')
     return parser.parse_args()
     
-def create_script(Pe, Gamma, beta, ueps, Lx, Ly, rnd, holdpert):
-    command_line = f"mpirun python3 cooling.py {Pe} {Gamma} {beta} {ueps} {Lx} {Ly}"
+def create_script(Pe, Gamma, beta, ueps, Ly, Lx, rnd, holdpert):
+    command_line = f"mpirun python3 cooling.py {Pe} {Gamma} {beta} {ueps} {Ly} {Lx}"
     if rnd:
          command_line = command_line + " --rnd"
     if holdpert:
          command_line = command_line + " --holdpert"
-    filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Lx_{Lx}_Ly_{Ly}_rnd_{rnd}_holdpert_{holdpert}.sh"
+    filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}_holdpert_{holdpert}.sh"
     script = f"""#!/bin/bash
 
 # Job name:
 #SBATCH --job-name=cooling
 # Slurm output file:
-#SBATCH --output=Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Lx_{Lx}_Ly_{Ly}_rnd_{rnd}_holdpert_{holdpert}.out
+#SBATCH --output=Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}_holdpert_{holdpert}.out
 # Number of tasks (processors):
 #SBATCH --ntasks=64
 # Memory (different units can be specified using the suffix K|M|G|T):
@@ -64,18 +64,18 @@ if __name__ == "__main__":
     if manyLy is True:
         Ly_ = [pow(2,a) for a in np.arange(0., 3, 0.25)] # List of wavelengths
         for Ly_value in Ly_:
-            filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Lx_{Lx}_Ly_{Ly_value}_rnd_{rnd}_holdpert_{holdpert}.sh"
+            filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly_value}_Lx_{Lx}_rnd_{rnd}_holdpert_{holdpert}.sh"
     
             # create file .sh
-            create_script(Pe, Gamma, beta, ueps, Lx, Ly_value, rnd, holdpert)
+            create_script(Pe, Gamma, beta, ueps, Ly_value, Lx, rnd, holdpert)
             
             # submit the job
             subprocess.run(["sbatch", filename])
     else:
-        filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Lx_{Lx}_Ly_{Ly}_rnd_{rnd}_holdpert_{holdpert}.sh"
+        filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}_holdpert_{holdpert}.sh"
     
         # create file .sh
-        create_script(Pe, Gamma, beta, ueps, Lx, Ly, rnd, holdpert)
+        create_script(Pe, Gamma, beta, ueps, Ly, Lx, rnd, holdpert)
             
         # submit the job
         subprocess.run(["sbatch", filename])

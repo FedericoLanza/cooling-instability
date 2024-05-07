@@ -290,5 +290,5 @@ end_time = time.time()
 elapsed_time = end_time - start_time
 elapsed_time_string = f"Elapsed Time: {elapsed_time} seconds"
 print(elapsed_time_string)
-with open("elapsed_time.txt", 'w') as f:
+with open(out_dir + "elapsed_time.txt", 'w') as f:
     f.write(elapsed_time_string)

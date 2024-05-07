@@ -6,3 +6,6 @@
 
 # Ignore all .out files
 *.out
+
+# Ignore the following Python scripts
+create_sh_file.py

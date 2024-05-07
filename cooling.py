@@ -288,4 +288,7 @@ if __name__ == "__main__":
 
 end_time = time.time()
 elapsed_time = end_time - start_time
-print(f"Elapsed Time: {elapsed_time} seconds")
+elapsed_time_string = f"Elapsed Time: {elapsed_time} seconds"
+print(elapsed_time_string)
+with open("elapsed_time.txt", 'w') as f:
+    f.write(elapsed_time_string)

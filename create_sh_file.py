@@ -13,8 +13,7 @@ def parse_args():
     parser.add_argument('Lx', type=float, help='Value for system size')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
-    # parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
-    parser.add_argument("--snap", action="store_true", help="Snap") # optional argument: typing --snap enables the "snap" feature
+    parser.add_argument('--manyLy', action='store_true', help='Flag for starting jobs with multiple Ly')
     return parser.parse_args()
     
 def create_script(Pe, Gamma, beta, ueps, Lx, Ly, rnd, holdpert):
@@ -34,8 +33,6 @@ def create_script(Pe, Gamma, beta, ueps, Lx, Ly, rnd, holdpert):
 #SBATCH --ntasks=64
 # Memory (different units can be specified using the suffix K|M|G|T):
 #SBATCH --mem=25G
-# Maximum runtime, syntax is d-hh:mm:ss
-#SBATCH --time=7-00:00:0
 
 # Job to execute
 {command_line}
@@ -43,6 +40,9 @@ def create_script(Pe, Gamma, beta, ueps, Lx, Ly, rnd, holdpert):
 # Finish the script
 exit 0
 """
+# Maximum runtime, syntax is d-hh:mm:ss
+#SBATCH --time=7-00:00:0
+
     with open(filename, 'w') as f:
         f.write(script)
 
@@ -59,14 +59,25 @@ if __name__ == "__main__":
     Ly = args.Ly # y-lenght of domain (wavelength)
     rnd = args.rnd
     holdpert = args.holdpert
+    manyLy = args.manyLy
     
-    filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Lx_{Lx}_Ly_{Ly}_rnd_{rnd}_holdpert_{holdpert}.sh"
+    if manyLy is True:
+        Ly_ = [pow(2,a) for a in np.arange(0., 3, 0.25)] # List of wavelengths
+        for Ly_value in Ly_:
+            filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Lx_{Lx}_Ly_{Ly_value}_rnd_{rnd}_holdpert_{holdpert}.sh"
     
-    # create file .sh
-    create_script(Pe, Gamma, beta, ueps, Lx, Ly, rnd, holdpert)
+            # create file .sh
+            create_script(Pe, Gamma, beta, ueps, Lx, Ly_value, rnd, holdpert)
+            
+            # submit the job
+            subprocess.run(["sbatch", filename])
+    else:
+        filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Lx_{Lx}_Ly_{Ly}_rnd_{rnd}_holdpert_{holdpert}.sh"
     
-    # submit the job
-    subprocess.run(["sbatch", filename])
-
-    
+        # create file .sh
+        create_script(Pe, Gamma, beta, ueps, Lx, Ly, rnd, holdpert)
+            
+        # submit the job
+        subprocess.run(["sbatch", filename])
+        
     

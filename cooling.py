@@ -59,11 +59,24 @@ def periodic_relation(x):
  #def eta(x, sigma=1):
     #return sigma * np.random.randn()
     
+def create_script(elapsed_time, Nx, Ny, rtol, dt, dump_intv, t_end, out_dir):
+    script = f"""Elapsed Time: {elapsed_time} seconds
+    Nx = {Nx}, Ny = {Ny}
+    rtol = {rtol}
+
+    dt = {dt}
+    dump_intv = {dump_intv}
+    t_end = {t_end}
+    """
+    with open(out_dir + "notes.txt", 'w') as f:
+        f.write(script)
+
+
 start_time = time.time()
 
 if __name__ == "__main__":
     
-    Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
+    Nx = 200 # number of tiles along x ( = Number of divisions along the x-axis)
     Ny = int(100*Ly) # number of tiles along y ( = Number of divisions along the y-axis). Proportional to the length Ly to be coherent in resolution between simulations with different Ly
     
     # Global parameters
@@ -89,7 +102,7 @@ if __name__ == "__main__":
     t_end = 50.01 # final time
     dump_intv = 10 # saving interval
 
-    rtol = 1e-14 # tolerance for solving linear problem
+    rtol = 1e-15 # tolerance for solving linear problem
 
     # Generate mesh
     def mesh_warp_x(x): # function for non-constant length of grid along x
@@ -234,14 +247,14 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_Nx_200_rtol_1e-15/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
-    xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")
+    # xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")
 
     xdmff_T.write_mesh(mesh)
     xdmff_p.write_mesh(mesh)
-    xdmff_u.write_mesh(mesh)
+    # xdmff_u.write_mesh(mesh)
 
     it = 0 # iterative step
     
@@ -290,13 +303,5 @@ end_time = time.time()
 elapsed_time = end_time - start_time
 elapsed_time_string = f"Elapsed Time: {elapsed_time} seconds"
 print(elapsed_time_string)
-script = """Elapsed Time: {elapsed_time} seconds
-Nx = {Nx}, Ny = {Ny}
-rtol = {rtol}
 
-dt = {dt}
-dump_intv = {dump_intv}
-t_end = {t_end}
-"""
-with open(out_dir + "notes.txt", 'w') as f:
-    f.write(script)
+create_script(elapsed_time, Nx, Ny, rtol, dt, dump_intv, t_end, out_dir)

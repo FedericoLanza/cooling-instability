@@ -63,7 +63,7 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str]) + ".0/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_Nx_200_rtol_1e-15/" # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -316,5 +316,5 @@ if __name__ == "__main__":
     animation_ux = FuncAnimation(figux, update_ux, frames=num_frames, blit=False)
     animation_ux.save(out_dir + '/ux.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
     print('making video for uy')
-    animation_ux = FuncAnimation(figuy, update_uy, frames=num_frames, blit=False)
-    animation_ux.save(out_dir + '/uy.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
+    animation_uy = FuncAnimation(figuy, update_uy, frames=num_frames, blit=False)
+    animation_uy.save(out_dir + '/uy.mp4', fps=10, extra_args=['-vcodec', 'libx264'])

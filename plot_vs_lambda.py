@@ -44,7 +44,7 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    Ly_ = [pow(2,a) for a in np.arange(0., 4.25, 0.25)] # List of wavelengths
+    Ly_ = [pow(2,a) for a in np.arange(0., 4., 0.25)] # List of wavelengths
     print("Ly_ = ", Ly_)
     T_ = [0.1 * n for n in range(1, 10)] # List of temperature levels
     Ly_umax = [] # List of wavelenghts for umax
@@ -60,21 +60,22 @@ if __name__ == "__main__":
     file_tstat = f"tstat.txt"
     
     # Prepare output files
-    with open(f"results/umax_vs_lambda.txt", 'w') as output_file:
+    output_folder = f"results/output_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+    with open(output_folder + "umax.txt", 'w') as output_file:
             output_file.write("Ly\t umax\n")
-    with open(f"results/gamma_vs_lambda.txt", 'w') as output_file:
+    with open(output_folder + "gamma.txt", 'w') as output_file:
             output_file.write("Ly\t gamma\n")
-    with open(f"results/tstat_vs_lambda.txt", 'w') as output_file:
+    with open(output_folder + "tstat.txt", 'w') as output_file:
             output_file.write("Ly\t tstat\n")
     for T in T_:
-        with open(f"results/xspan_vs_lambda_T={T:.2f}.txt", 'w') as output_file:
+        with open(output_folder + f"xspan_T={T:.2f}.txt", 'w') as output_file:
                 output_file.write("Ly\t xspan\n")
     
     fig_umax, ax_umax = plt.subplots(1, 1)
     fig_gamma, ax_gamma = plt.subplots(1, 1)
     fig_tstat, ax_tstat = plt.subplots(1, 1)
-    fig_xspan, ax_xspan = plt.subplots(1, 1)
-    fig_gamma2, ax_gamma2 = plt.subplots(1, 1)
+    fig_xspan, ax_xspan = plt.subplots(1, 1, figsize=(8, 5))
+    fig_gamma2, ax_gamma2 = plt.subplots(1, 1, figsize=(8, 5))
     fig_tstat2, ax_tstat2 = plt.subplots(1, 1)
     
     # Extract umax and gamma from every Ly analyzed and save it
@@ -93,7 +94,7 @@ if __name__ == "__main__":
                 umax_last = read_last_value(path_umax)
                 if umax_last is not None:
                     umax_.append(float(umax_last))
-                    with open(f"results/umax_vs_lambda.txt", 'a') as output_file:
+                    with open(output_folder + f"umax.txt", 'a') as output_file:
                             output_file.write(f"{Ly}\t{umax_last}\n")
             # Extract gamma
             if os.path.isfile(path_gamma):
@@ -101,7 +102,7 @@ if __name__ == "__main__":
                 gamma_str = read_halfway_value(path_gamma)
                 if gamma_str is not None:
                     gamma_.append(float(gamma_str))
-                    with open(f"results/gamma_vs_lambda.txt", 'a') as output_file:
+                    with open(output_folder + f"gamma.txt", 'a') as output_file:
                             output_file.write(f"{Ly}\t{gamma_str}\n")
             # Extract tstat
             if os.path.isfile(path_tstat):
@@ -109,7 +110,7 @@ if __name__ == "__main__":
                 tstat_str = read_halfway_value(path_tstat)
                 if tstat_str is not None:
                     tstat_.append(float(tstat_str))
-                    with open(f"results/tstat_vs_lambda.txt", 'a') as output_file:
+                    with open(output_folder + "tstat.txt", 'a') as output_file:
                             output_file.write(f"{Ly}\t{tstat_str}\n")
                         
     ax_umax.scatter(Ly_umax, umax_, label="holdpert_False") # Plot umax vs Ly
@@ -147,7 +148,7 @@ if __name__ == "__main__":
                     xspan_last = read_last_value(path_xspan)
                     if xspan_last is not None:
                         xspan_.append(float(xspan_last))
-                        with open(f"results/xspan_vs_lambda_T={T:.2f}.txt", 'a') as output_file:
+                        with open(output_folder + "xspan_T={T:.2f}.txt", 'a') as output_file:
                             output_file.write(f"{Ly}\t{xspan_last}\n")
                 # Extract all gamma
                 if os.path.isfile(path_gamma):  # Check if the data were analyzed
@@ -169,42 +170,50 @@ if __name__ == "__main__":
 
     #ax_umax.set_xscale('log')
     #ax_umax.set_yscale('log')
-    ax_umax.set_xlabel("$\lambda$")
-    ax_umax.set_ylabel("$u^{\max}_{st}$")
-    fig_umax.savefig('results/umax_vs_lambda.png', dpi=300)
+    ax_umax.set_xlabel(r"$\lambda$")
+    ax_umax.set_ylabel(r"$u^{\max}_{st}$")
+    ax_umax.tick_params(axis='both', which='major', labelsize=14)
+    fig_umax.savefig(output_folder + 'umax.png', dpi=300)
     
     #ax_gamma.set_xscale('log')
     #ax_gamma.set_yscale('log')
-    ax_gamma.set_xlabel("$\lambda$")
-    ax_gamma.set_ylabel("$\gamma$")
-    fig_gamma.savefig('results/gamma_vs_lambda.png', dpi=300)
+    ax_gamma.set_xlabel(r"$\lambda$")
+    ax_gamma.set_ylabel(r"$\gamma$")
+    ax_gamma.tick_params(axis='both', which='major', labelsize=14)
+    fig_gamma.savefig(output_folder + 'gamma.png', dpi=300)
     
     #ax_tstat.set_xscale('log')
     #ax_tstat.set_yscale('log')
-    ax_tstat.set_xlabel("$\lambda$")
-    ax_tstat.set_ylabel("$t_{st}$")
-    fig_tstat.savefig('results/tstat_vs_lambda.png', dpi=300)
+    ax_tstat.set_xlabel(r"$\lambda$")
+    ax_tstat.set_ylabel(r"$t_{st}$")
+    ax_tstat.tick_params(axis='both', which='major', labelsize=14)
+    fig_tstat.savefig(output_folder + 'tstat.png', dpi=300)
     
     #ax_xspan.set_xscale('log')
     #ax_xspan.set_yscale('log')
-    ax_xspan.set_xlabel("$\lambda$")
-    ax_xspan.set_ylabel("$(x_{max} - x_{min})_{st}$")
-    ax_xspan.legend()
-    fig_xspan.savefig('results/xspan_vs_lambda.png', dpi=300)
+    ax_xspan.set_xlabel(r"$\lambda$", fontsize=14)
+    ax_xspan.set_ylabel(r"$\Delta x_{st}$", fontsize=14)
+    ax_xspan.tick_params(axis='both', which='major', labelsize=14)
+    ax_xspan.tick_params(labelsize=16)
+    #ax_xspan.legend(fontsize="large")
+    fig_xspan.savefig(output_folder + 'xspan.png', dpi=300)
     
     #ax_gamma2.set_xscale('log')
     #ax_gamma2.set_yscale('log')
-    ax_gamma2.set_xlabel("$\lambda$")
-    ax_gamma2.set_ylabel("$\gamma$")
-    ax_gamma2.legend()
-    fig_gamma2.savefig('results/gamma_vs_lambda_all.png', dpi=300)
+    ax_gamma2.axhline(y=0, color='black', linestyle='--', linewidth=1)
+    ax_gamma2.set_xlabel(r"$\lambda$", fontsize=14)
+    ax_gamma2.set_ylabel(r"$\gamma$", fontsize=14)
+    ax_gamma2.tick_params(labelsize=16)
+    #ax_gamma2.legend(fontsize="large")
+    fig_gamma2.savefig(output_folder + 'gamma_all.png', dpi=300)
     
     #ax_tstat2.set_xscale('log')
     #ax_tstat2.set_yscale('log')
-    ax_tstat2.set_xlabel("$\lambda$")
-    ax_tstat2.set_ylabel("$t_{st}$")
-    ax_tstat2.legend()
-    fig_tstat2.savefig('results/tstat_vs_lambda_all.png', dpi=300)
+    ax_tstat2.set_xlabel(r"$\lambda$", fontsize=14)
+    ax_tstat2.set_ylabel(r"$t_{st}$", fontsize=14)
+    ax_tstat2.tick_params(labelsize=14)
+    ax_tstat2.legend(fontsize="large")
+    fig_tstat2.savefig(output_folder + 'tstat_all.png', dpi=300)
     
     #plt.scale
     

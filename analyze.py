@@ -21,6 +21,11 @@ def parse_args():
     parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
     parser.add_argument('Ly', type=float, help='Value for wavelength')
     parser.add_argument('Lx', type=float, help='Value for system size')
+    parser.add_argument('dt', type=float, help='Value for time interval')
+    # parser.add_argument('t_pert', type=float, help='Value for perturbation time')
+    # parser.add_argument('t_end', type=float, help='Value for final time')
+    parser.add_argument('ny', type=float, help='Value for tile density along y')
+    parser.add_argument('rtol', type=float, help='Value for error function')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
     # parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
@@ -34,6 +39,7 @@ if __name__ == "__main__":
     
     Lx = args.Lx # x-lenght of domain (system size)
     Ly = args.Ly # y-lenght of domain (wavelength)
+    dt = args.dt #time step
     
     # global parameters
     Pe = args.Pe # Peclet number
@@ -45,8 +51,12 @@ if __name__ == "__main__":
     u0 = 1.0 # base inlet velocity
     
     # base state parameters
-    Deff = 1./Pe + 2*Pe*u0*u0/105 # effective constant diffusion for the base state
-    lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / (2*Deff) # decay constant for the base state
+    kappa_eff = 1./Pe + 2*Pe*u0*u0/105 # effective constant diffusion for the base state
+    xi = ( - u0 + math.sqrt(u0*u0 + 4*kappa_eff*Gamma)) / (2*kappa_eff) # decay constant for the base state
+    
+    # resolution parameters
+    ny = args.ny
+    rtol = args.rtol
     
     # flags
     rnd = args.rnd
@@ -58,10 +68,12 @@ if __name__ == "__main__":
     ueps_str = f"ueps_{ueps:.10g}"
     Ly_str = f"Ly_{Ly:.10g}"
     Lx_str = f"Lx_{Lx:.10g}"
+    ny_str = f"ny_{ny:.10g}"
+    rtol_str = f"rtol_{rtol:.10g}"
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_Nx_200_rtol_1e-15/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str, ny_str, rtol_str]) + "_2periods/" # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -110,18 +122,26 @@ if __name__ == "__main__":
     # u_ = np.zeros((len(elems), 2)) # velocity field
 
     n_steps = len(it_)
-    dt_save = 0.05
+    dump_intv = 10 # update manually
+    dt_save = dt*dump_intv
     t_end = n_steps*dt_save
-    print(t_end)
+    print("t_end = ", t_end)
     levels = np.linspace(0, 1, 11) # levels of T
     xmax = dict([(level, np.zeros_like(t_)) for level in levels]) # max x-position of a level for all time steps, for all levels
     xmin = dict([(level, np.zeros_like(t_)) for level in levels]) # min x-position of a level for all time steps, for all levels
     umax = np.zeros_like(t_) # max velocity for all time steps
+    Tprime_max = np.zeros_like(t_) # max velocity for all time steps
+    
+    #Tk = np.zeros(nx_high_res, n_steps//10)
+    Tkx = np.zeros_like(t_)
+    Tk_max = np.zeros_like(t_)
     
     # Analyze final state
     
+    cmap = plt.cm.viridis
+    
     if True:
-        beta = 0.001 # viscosity ratio
+        #beta = 0.001 # viscosity ratio
 
         t = t_[it_[-1]] # final time
         dset_T = dsets_T[t] # T-dictionary at final time
@@ -149,7 +169,6 @@ if __name__ == "__main__":
         ux_max = ux_r.max(axis=0) # max of u_x along y at fixed t
 
         # Plot T and u_x along y for fixed x
-        cmap = plt.cm.viridis
         
         fig1, ax1 = plt.subplots(1, 2, figsize=(12, 4))
         for i in range(nx_high_res)[::25]:
@@ -192,6 +211,7 @@ if __name__ == "__main__":
         # Plot T and u_x along x for fixed y
         
         fig2, ax2 = plt.subplots(1, 2, figsize=(12, 4))
+        ax2[0].plot(x_high_res, [np.exp(-x*xi) for x in x_high_res], color='black', linestyle='dashed') # plot the base state T_0(x)
         for i in range(ny)[::25]:
             color = cmap(i / (ny - 1))  # Adjust the color according to column index
             ax2[0].plot(x_high_res, T_r[i, :], label=f"$y={y_sort[i]:1.2f}$", color=color) # plot T(x) for different y
@@ -205,6 +225,7 @@ if __name__ == "__main__":
         # Plot max of T and u_x along x for fixed y
         
         fig3, ax3 = plt.subplots(1, 2, figsize=(12, 4))
+        ax3[0].plot(x_high_res, [np.exp(-x*xi) for x in x_high_res], color='black', linestyle='dashed')
         ax3[0].plot(x_high_res, T_max)
         ax3[1].plot(x_high_res, ux_max)
         ax3[0].set_ylabel("$T_{max}(x)$")
@@ -256,6 +277,16 @@ if __name__ == "__main__":
     
     # Analyze time evolution
     
+    #figTiki, axTiki = plt.subplots(1, 1)
+    #axTiki.set_xlabel("$t$")
+    #axTiki.set_ylabel("$ok$")
+    
+    figTk, axTk = plt.subplots(1, 2, figsize=(15, 5))
+    axTk[0].set_xlabel(r"$x$")
+    axTk[0].set_ylabel(r"$T_k(x)$")
+    axTk[1].set_xlabel(r"$x$")
+    axTk[1].set_ylabel(r"$T_k(x)/T_k^{\rm max}$")
+    
     for it in it_:
         t = t_[it] # time at step it
         print(f"it={it} t={t}")
@@ -297,12 +328,70 @@ if __name__ == "__main__":
             
         u_r = np.sqrt(ux_r**2 + uy_r**2) # |u| : absolute value of velocity field.
         umax[it] = u_r.max() # max of |u| at step it
+        
+        Tprime_r = T_r - np.exp(- xi*X_high_res[:, :])
+        Tprime_max[it] = Tprime_r.max() # max of T' at step it
+        
+        Tk_max[it] = np.max(Tprime_r[ny//4]) # max of Tk at step it
+        
+        Tkx[it] = Tprime_r[ny//4][nx_high_res*5//int(Lx)] #T_k(x=5)
+        
+        #if (it <= n_steps//5 and it % 20 == 0 ):
+        #    color = cmap(it / (n_steps//5 - 1))
+        #    axTk[0].plot(x_high_res, Tprime_r[ny//4][:], label=f"$t={t:1.2f}$", color=color) # plot u_max vs t
+        #    axTk[1].plot(x_high_res, Tprime_r[ny//4][:]/Tprime_r.max(), label=f"$t={t:1.2f}$", color=color) # plot u_max vs t
+    
+    t_i = 20 # initial time of growth rate measurement
+    t_f = 30 # final time of growth rate measurement
+    
+    n_i = int(n_steps * t_i/t_end)
+    n_f = int(n_steps * t_f/t_end)
+    model_max, cov_max = np.polyfit( t_[n_i:n_f], np.log(Tk_max[n_i:n_f]), 1, cov=True )
+    model_5, cov_5 = np.polyfit( t_[n_i:n_f], np.log(Tkx[n_i:n_f]), 1, cov=True )
+    gamma_max = model_max[0]
+    gamma_max_std = cov_max[0, 0]
+    gamma_5 = model_5[0]
+    gamma_5_std = cov_5[0, 0]
+    
+    print(f"gamma_max = {gamma_max}")
+    print(f"gamma_max_std = {gamma_max_std}")
+    print(f"gamma_5 = {gamma_5}")
+    print(f"gamma_5_std = {gamma_5_std}")
+        
+    axTk[0].legend(loc='center right')
+    axTk[0].set_xlim(0,20)
+    axTk[1].set_xlim(0,20)
+    figTk.savefig(out_dir + f'/Tk.jpg', dpi=300)
+    
+    # Plot Tprime_max vs t
+    figTpmax, axTpmax = plt.subplots(1, 1)
+    axTpmax.plot(t_[1:n_steps//5], Tprime_max[1:n_steps//5])
+    axTpmax.set_xlabel(r"$t$")
+    axTpmax.set_ylabel(r"$T'_{\rm max}$")
+    axTpmax.semilogy()
+    figTpmax.savefig(out_dir + f'/Tpmax.jpg', dpi=300)
+    
+    # Plot T_k^max vs t
+    figTkmax, axTkmax = plt.subplots(1, 1)
+    axTkmax.plot(t_[1:n_steps//5], Tk_max[1:n_steps//5])
+    axTkmax.set_xlabel(r"$t$")
+    axTkmax.set_ylabel(r"$T_{k}^{\rm max}$")
+    axTkmax.semilogy()
+    figTkmax.savefig(out_dir + f'/Tk_max.jpg', dpi=300)
+    
+    # Plot T_k(x=5) vs t
+    figTkx, axTkx = plt.subplots(1, 1)
+    axTkx.plot(t_[1:n_steps//5], Tkx[1:n_steps//5])
+    axTkx.set_xlabel(r"$t$")
+    axTkx.set_ylabel(r"$T_{k}(x=5)$")
+    axTkx.semilogy()
+    figTkx.savefig(out_dir + f'/Tkx5.jpg', dpi=300)
     
     # Plot umax vs t
     figumax, axumax = plt.subplots(1, 1)
-    axumax.plot(t_[1:n_steps], umax[1:n_steps]) # plot u_max vs t
-    axumax.set_xlabel("$t$")
-    axumax.set_ylabel("$u_{max}$")
+    axumax.plot(t_[1:n_steps], umax[1:n_steps] - 1.)
+    axumax.set_xlabel(r"$t$")
+    axumax.set_ylabel(r"$u'_{max}$")
     axumax.semilogy()
     figumax.savefig(out_dir + f'/umax.jpg', dpi=300)
     
@@ -310,30 +399,35 @@ if __name__ == "__main__":
     umax_data =  np.column_stack(( t_[1:], umax[1:] ))
     np.savetxt(out_dir + f'/umax.txt', umax_data, fmt='%1.9f')
     
+    #plt.show()
+    #exit(0)
+    
     cmap = plt.cm.viridis
-    figf, axf = plt.subplots(1, 3, figsize=(20, 4))
+    figf, axf = plt.subplots(1, 3, figsize=(30, 5))
+    #figf, axf = plt.subplots(1, 1)
     figf.subplots_adjust(wspace=0.3)
     figff, axff = plt.subplots(1, 1)
     
     gamma_ = np.zeros(len(levels[1:-1])) # growth rate for each level
     tstat_ = np.zeros(len(levels[1:-1])) # time to reach the stationary state for each level
     i = 0
+    
     for level in levels[1:-1]:
     
         # Plot xmax, xmin, xspan vs t
         color = cmap(level)
-        xbase = -math.log(level) / lambda_
-        axf[0].plot(t_[:n_steps], xmax[level][:n_steps], color=color) # plot xmax vs t for each level
-        axf[1].plot(t_[:n_steps], xmin[level][:n_steps], color=color) # plot xmin vs t for each level
-        axf[2].plot(t_[1:n_steps], (xmax[level][1:n_steps] - xmin[level][1:n_steps]), label=f"$T={level:1.2f}$", color=color) # plot span vs t for each level
+        xbase = -math.log(level) / xi
+        axf[0].plot(t_[:n_steps], xmax[level][:n_steps] - xmax[level][0], color=color) # plot xmax vs t for each level
+        axf[1].plot(t_[:n_steps], np.abs(xmin[level][:n_steps] - xmin[level][0]), color=color) # plot xmin vs t for each level
+        axf[2].plot(t_[1:n_steps*4//5], (xmax[level][1:n_steps*4//5] - xmin[level][1:n_steps*4//5]), label=f"$T={level:1.2f}$", color=color) # plot span vs t for each level
         
         # Save xspan vs t in file .txt
         xspan_data =  np.column_stack(( t_[1:n_steps], xmax[level][1:n_steps] - xmin[level][1:n_steps] ))
         np.savetxt(out_dir + f'/xspan_T={level:1.2f}.txt', xspan_data, fmt='%1.9f')
         
         # Plot xspan vs t at growing stage and find gamma and tstat
-        n_i = int(n_steps * 3/t_end)
-        n_f = int(n_steps * 7.5/t_end)
+        n_i = int(n_steps * t_i/t_end)
+        n_f = int(n_steps * t_f/t_end)
         axff.plot(t_[n_i:n_f], np.log(xmax[level][n_i:n_f] - xmin[level][n_i:n_f]), label=f"$T={level:1.2f}$", color=color)
         model = LinearRegression().fit(t_[n_i:n_f].reshape((-1, 1)), np.log(xmax[level][n_i:n_f] - xmin[level][n_i:n_f]))
         xspan_sat = xmax[level][n_steps-1] - xmin[level][n_steps-1] # stationary value for xspan
@@ -341,13 +435,21 @@ if __name__ == "__main__":
         tstat_[i] = (np.log(xspan_sat) - model.intercept_)/ model.coef_[0]
         i += 1
     
-    axf[2].legend(fontsize='small')
-    [axi.set_xlabel("$t$") for axi in axf]
-    axf[0].set_ylabel("$x_{max}$")
-    axf[1].set_ylabel("$x_{min}$")
-    axf[2].set_ylabel("$x_{max}-x_{min}$")
+    axf[2].legend(fontsize='large')
+    [axi.set_xlabel("$t$", fontsize=16) for axi in axf]
+    #axf.set_xlabel("$t$", fontsize=16)
+    axf[0].set_ylabel("$x_{max}(t) - x_{max}(t=0)$", fontsize=16)
+    axf[1].set_ylabel("$x_{min}(t) -  x_{min}(t=0)$", fontsize=16)
+    #axf.set_ylabel("$x_{max}-x_{min}$", fontsize=16)
+    axf[2].set_ylabel("$x_{max}-x_{min}$", fontsize=16)
+    axf[0].semilogy()
+    axf[1].semilogy()
+    #axf.semilogy()
     axf[2].semilogy()
+    axf[2].tick_params(axis='both', which='major', labelsize=14)
     figf.savefig(out_dir + '/fingergrowth.png', dpi=300)
+    #axf.tick_params(labelsize=14)
+    axf[2].tick_params(labelsize=14)
     
     #axff.legend(fontsize='small')
     axff.set_xlabel("$t$")
@@ -359,4 +461,4 @@ if __name__ == "__main__":
     tstat_data = np.column_stack(( levels[1:-1], tstat_ ))
     np.savetxt(out_dir + f'/tstat.txt', tstat_data, fmt='%1.9f')
     
-    plt.show()
+    #plt.show()

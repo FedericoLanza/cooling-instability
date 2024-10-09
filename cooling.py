@@ -9,6 +9,7 @@ import dolfinx as dfx
 from dolfinx_mpc import LinearProblem, MultiPointConstraint
 import numpy as np
 from dolfinx.mesh import create_unit_square, CellType, locate_entities_boundary
+from basix.ufl import element
 from utils import get_next_subfolder, mpi_comm, mpi_rank, mpi_size
 
 
@@ -21,6 +22,11 @@ parser.add_argument('beta', type=float, help='Value for viscosity ratio')
 parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
 parser.add_argument('Ly', type=float, help='Value for wavelength')
 parser.add_argument('Lx', type=float, help='Value for system size')
+parser.add_argument('dt', type=float, help='Value for time interval')
+parser.add_argument('t_pert', type=float, help='Value for perturbation time')
+parser.add_argument('t_end', type=float, help='Value for final time')
+parser.add_argument('ny', type=float, help='Value for tile density along y')
+parser.add_argument('rtol', type=float, help='Value for error function')
 parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
 parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
 
@@ -59,13 +65,14 @@ def periodic_relation(x):
  #def eta(x, sigma=1):
     #return sigma * np.random.randn()
     
-def create_script(elapsed_time, Nx, Ny, rtol, dt, dump_intv, t_end, out_dir):
+def create_script(elapsed_time, Nx, Ny, rtol, dt, dump_intv, t_end, t_pert, out_dir):
     script = f"""Elapsed Time: {elapsed_time} seconds
     Nx = {Nx}, Ny = {Ny}
     rtol = {rtol}
 
     dt = {dt}
     dump_intv = {dump_intv}
+    t_pert = {t_pert}
     t_end = {t_end}
     """
     with open(out_dir + "notes.txt", 'w') as f:
@@ -76,8 +83,10 @@ start_time = time.time()
 
 if __name__ == "__main__":
     
-    Nx = 200 # number of tiles along x ( = Number of divisions along the x-axis)
-    Ny = int(100*Ly) # number of tiles along y ( = Number of divisions along the y-axis). Proportional to the length Ly to be coherent in resolution between simulations with different Ly
+    ny = args.ny # tile density along y
+    
+    Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
+    Ny = int(ny*Ly) # number of tiles along y ( = Number of divisions along the y-axis). Proportional to the length Ly to be coherent in resolution between simulations with different Ly
     
     # Global parameters
     Pe = args.Pe # Peclet number
@@ -90,20 +99,21 @@ if __name__ == "__main__":
     
     # Base state parameters
     Deff = 1./Pe + 2*Pe*u0*u0/105 # effective constant diffusion for the base state
-    lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / (2*Deff) # decay constant for the base state
+    xi = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / (2*Deff) # decay constant for the base state
     
     # Flags
     rnd = args.rnd
     holdpert = args.holdpert
-
-    dt = 0.005 # time interval
+    
+    dt = args.dt # time interval (default value: 0.005)
     t = 0. # starting time
-    t_pert = 0.1 # perturbation time
-    t_end = 50.01 # final time
+    t_pert = args.t_pert # perturbation time (default value: 0.1)
+    t_end = args.t_end # final time (default value: 50.01)
     dump_intv = 10 # saving interval
-
-    rtol = 1e-15 # tolerance for solving linear problem
-
+    
+    #rtol = 1e-14 # tolerance for solving linear problem
+    rtol = args.rtol # tolerance for solving linear problem
+    
     # Generate mesh
     def mesh_warp_x(x): # function for non-constant length of grid along x
         x0 = 0.6 # percentage of tiles after which you change function for length
@@ -131,8 +141,12 @@ if __name__ == "__main__":
     mesh.geometry.x[:, 1] *= Ly
     
     # Define the finite element function spaces
-    S = dfx.fem.FunctionSpace(mesh, ("Lagrange", 1))
-    V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "quadrilateral", 0))
+    s_cg1 = element("Lagrange", mesh.topology.cell_name(), 1)
+    v_cg0 = element("DG", mesh.topology.cell_name(), 0, shape=(mesh.geometry.dim, ))
+    S = dfx.fem.functionspace(mesh, s_cg1)
+    V = dfx.fem.functionspace(mesh, v_cg0)
+    #S = dfx.fem.functionspace(mesh, ("Lagrange", 1))
+    #V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "quadrilateral", 0))
     # V = dfx.fem.FunctionSpace(mesh, ufl.VectorElement("DG", "triangle", 0))
     x = ufl.SpatialCoordinate(mesh)
 
@@ -180,7 +194,7 @@ if __name__ == "__main__":
     # Define physical functions
     T_ = dfx.fem.Function(mpc_T.function_space, name="T") # temperature
     T_n = dfx.fem.Function(mpc_T.function_space, name="T") # temperature at previous step
-    T_n.interpolate(lambda x: np.exp(-lambda_*x[0]))
+    T_n.interpolate(lambda x: np.exp(-xi*x[0]))
     mob_ = beta**-T_n # mobility
 
     p_ = dfx.fem.Function(mpc_p.function_space, name="p") # pressure (before: p = dfx.fem.Function(S, name="p"))
@@ -189,7 +203,8 @@ if __name__ == "__main__":
     # velocity at inlet with perturbation
     ux0 = dfx.fem.Function(mpc_p.function_space, name="ux0")
     if rnd is False:
-        ux0 = u0 + ueps*ufl.sin(2*ufl.pi*x[1]/Ly) # velocity at inlet (before: u0 = ufl.as_vector((1.0 + 1.0*ufl.sin(2*ufl.pi*x[1]), 0.)))
+        #ux0 = u0 + ueps*ufl.sin(2*ufl.pi*x[1]/Ly) # velocity at inlet (before: u0 = ufl.as_vector((1.0 + 1.0*ufl.sin(2*ufl.pi*x[1]), 0.)))
+        ux0 = u0 + ueps*ufl.sin(4*ufl.pi*x[1]/Ly)
     else:
         ux0.x.array[:] = u0 + ueps*np.random.randn()
     
@@ -197,8 +212,8 @@ if __name__ == "__main__":
     ux0_2 = dfx.fem.Function(mpc_p.function_space, name="ux0_2")
     ux0_2.x.array[:] = u0
     
-    # Problem for p during perturbation (nabla u = nabla ( -(k/mu(T)) nabla P) = 0, u = ux0 at x = 0)
-    F_p = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0 * b * ds(1)
+    # Problem for p during perturbation (nabla u = nabla ( - mob * nabla P) = 0, u = ux0 at x = 0)
+    F_p = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0 * b * ds(1) # nabla u = nabla ( - mob * nabla P) = 0
     a_p = ufl.lhs(F_p)
     L_p = ufl.rhs(F_p)
     
@@ -221,7 +236,7 @@ if __name__ == "__main__":
     F_T += ufl.dot(u_, ufl.grad(T)) * b * ufl.dx # u \cdot \nabla T
     F_T += (1./Pe) * ufl.inner(ufl.grad(T), ufl.grad(b)) * ufl.dx # -(1/Pe) \nabla^2 T
     F_T += (2.*Pe/105) * ufl.inner(u_, ufl.grad(b)) * ufl.inner(u_, ufl.grad(T)) * ufl.dx # -(2 Pe/105) \nabla (u \prod u) \nabla T
-    F_T += 1.*Gamma * T * b * ufl.dx # Gamma (T - T_c)
+    F_T += 1.*Gamma * T * b * ufl.dx # Gamma * T
     
     a_T = ufl.lhs(F_T)
     L_T = ufl.rhs(F_T)
@@ -244,10 +259,12 @@ if __name__ == "__main__":
     ueps_str = f"ueps_{ueps:.10g}"
     Ly_str = f"Ly_{Ly:.10g}"
     Lx_str = f"Lx_{Lx:.10g}"
+    ny_str = f"ny_{ny:.10g}"
+    rtol_str = f"rtol_{rtol:.10g}"
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_Nx_200_rtol_1e-15/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str, ny_str, rtol_str]) + "_2periods/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
     # xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")
@@ -267,10 +284,10 @@ if __name__ == "__main__":
             p_h = problem_p.solve()
         else:
             if t < t_pert:
-                p_h = problem_p.solve()
+                p_h = problem_p.solve() # solve problem with perturbation
             else:
                 # ux0.x.array[:] = u0
-                p_h = problem_p2.solve()
+                p_h = problem_p2.solve() # solve problem without perturbation
         
         # Update p (u will update consequently)
         p_.x.array[:] = p_h.x.array[:]
@@ -304,4 +321,4 @@ elapsed_time = end_time - start_time
 elapsed_time_string = f"Elapsed Time: {elapsed_time} seconds"
 print(elapsed_time_string)
 
-create_script(elapsed_time, Nx, Ny, rtol, dt, dump_intv, t_end, out_dir)
+create_script(elapsed_time, Nx, Ny, rtol, dt, dump_intv, t_end, t_pert, out_dir)

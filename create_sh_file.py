@@ -2,6 +2,7 @@
 
 import argparse
 import subprocess
+import numpy as np
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
@@ -11,13 +12,16 @@ def parse_args():
     parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
     parser.add_argument('Ly', type=float, help='Value for wavelength')
     parser.add_argument('Lx', type=float, help='Value for system size')
+    parser.add_argument('dt', type=float, help='Value for time interval')
+    parser.add_argument('t_pert', type=float, help='Value for perturbation time')
+    parser.add_argument('t_end', type=float, help='Value for final time')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
-    parser.add_argument('--manyLy', action='store_true', help='Flag for starting jobs with multiple Ly')
+    parser.add_argument('--many', action='store_true', help='Flag for starting multiple jobs varying a parameter')
     return parser.parse_args()
     
-def create_script(Pe, Gamma, beta, ueps, Ly, Lx, rnd, holdpert):
-    command_line = f"mpirun python3 cooling.py {Pe} {Gamma} {beta} {ueps} {Ly} {Lx}"
+def create_script(Pe, Gamma, beta, ueps, Ly, Lx, rnd, holdpert, dt, t_pert, t_end):
+    command_line = f"mpirun python3 cooling.py {Pe} {Gamma} {beta} {ueps} {Ly} {Lx} {dt} {t_pert} {t_end}"
     if rnd:
          command_line = command_line + " --rnd"
     if holdpert:
@@ -57,17 +61,20 @@ if __name__ == "__main__":
     ueps = args.ueps # amplitude of the perturbation
     Lx = args.Lx # x-lenght of domain (system size)
     Ly = args.Ly # y-lenght of domain (wavelength)
+    dt = args.dt # time interval
+    t_pert = args.t_pert # perturbation time
+    t_end = args.t_end # final time
     rnd = args.rnd
     holdpert = args.holdpert
-    manyLy = args.manyLy
+    many = args.many
     
-    if manyLy is True:
-        Ly_ = [pow(2,a) for a in np.arange(0., 3, 0.25)] # List of wavelengths
-        for Ly_value in Ly_:
-            filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly_value}_Lx_{Lx}_rnd_{rnd}_holdpert_{holdpert}.sh"
+    if many is True:
+        Pe_ = [pow(10,a) for a in np.arange(0.75, 3, 0.5)] # List of wavelengths
+        for Pe_value in Pe_:
+            filename = f"Pe_{Pe_value}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}_holdpert_{holdpert}.sh"
     
             # create file .sh
-            create_script(Pe, Gamma, beta, ueps, Ly_value, Lx, rnd, holdpert)
+            create_script(Pe_value, Gamma, beta, ueps, Ly, Lx, rnd, holdpert, dt, t_pert, t_end)
             
             # submit the job
             subprocess.run(["sbatch", filename])
@@ -75,7 +82,7 @@ if __name__ == "__main__":
         filename = f"Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}_holdpert_{holdpert}.sh"
     
         # create file .sh
-        create_script(Pe, Gamma, beta, ueps, Ly, Lx, rnd, holdpert)
+        create_script(Pe, Gamma, beta, ueps, Ly, Lx, rnd, holdpert, dt, t_pert, t_end)
             
         # submit the job
         subprocess.run(["sbatch", filename])

@@ -5,8 +5,10 @@ import meshio
 from utils import parse_xdmf
 import h5py
 import numpy as np
+import matplotlib as mpl
+#mpl.rcParams['animation.ffmpeg_path'] = '/path/to/ffmpeg'  # Set this to the actual path of ffmpeg
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+import matplotlib.animation as animation
 from matplotlib import tri
 from scipy.interpolate import RectBivariateSpline
 
@@ -25,6 +27,8 @@ def parse_args():
     parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
     parser.add_argument('Ly', type=float, help='Value for wavelength')
     parser.add_argument('Lx', type=float, help='Value for system size')
+    parser.add_argument('ny', type=float, help='Value for tile density along y')
+    parser.add_argument('rtol', type=float, help='Value for error function')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
     return parser.parse_args()
@@ -50,6 +54,10 @@ if __name__ == "__main__":
     Deff = 1./Pe + 2*Pe*u0*u0/105 # effective constant diffusion for the base state
     lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / (2*Deff) # decay constant for the base state
     
+    # resolution parameters
+    ny = args.ny
+    rtol = args.rtol
+    
     # flags
     rnd = args.rnd
     holdpert = args.holdpert
@@ -60,10 +68,12 @@ if __name__ == "__main__":
     ueps_str = f"ueps_{ueps:.10g}"
     Ly_str = f"Ly_{Ly:.10g}"
     Lx_str = f"Lx_{Lx:.10g}"
+    ny_str = f"ny_{ny:.10g}"
+    rtol_str = f"rtol_{rtol:.10g}"
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "_Nx_200_rtol_1e-15/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str, ny_str, rtol_str]) + "_2periods/" # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -162,25 +172,28 @@ if __name__ == "__main__":
         
     # Prepare figures for videos
     figT, axT = plt.subplots(1, 1, figsize=(15, 5))
-    axT.set_xlabel("$x$")
-    axT.set_ylabel("$y$")
-    axT.set_title("$T(x,y)$")
+    axT.set_xlabel("$x$", fontsize=16)
+    axT.set_ylabel("$y$", fontsize=16)
+    #axT.set_title("$T(x,y)$")
     im_T = axT.pcolormesh(X_high_res, Y_high_res, np.zeros_like(X_high_res), vmin=0., vmax=1.)
     cb_T = plt.colorbar(im_T, ax=axT) # colorbar
+    cb_T.ax.tick_params(labelsize=14)
     
     figux, axux = plt.subplots(1, 1, figsize=(15, 5))
-    axux.set_xlabel("$x$")
-    axux.set_ylabel("$y$")
-    axux.set_title("$u_x(x,y)$")
+    axux.set_xlabel("$x$", fontsize=16)
+    axux.set_ylabel("$y$", fontsize=16)
+    #axux.set_title("$u_x(x,y)$")
     im_ux = axux.pcolormesh(X_high_res, Y_high_res, np.zeros_like(X_high_res), vmin=overall_min_ux, vmax=overall_max_ux)
     cb_ux = plt.colorbar(im_ux, ax=axux) # colorbar
+    cb_ux.ax.tick_params(labelsize=14)
     
     figuy, axuy = plt.subplots(1, 1, figsize=(15, 5))
-    axuy.set_xlabel("$x$")
-    axuy.set_ylabel("$y$")
-    axuy.set_title("$u_x(x,y)$")
+    axuy.set_xlabel("$x$", fontsize=16)
+    axuy.set_ylabel("$y$", fontsize=16)
+    #axuy.set_title("$u_x(x,y)$")
     im_uy = axuy.pcolormesh(X, Y, np.zeros_like(X), vmin=overall_min_uy, vmax=overall_max_uy)
     cb_uy = plt.colorbar(im_uy, ax=axuy) # colorbar
+    cb_uy.ax.tick_params(labelsize=14)
     
     def update_T(frame):
         t = t_[frame]  # time at step it
@@ -188,10 +201,11 @@ if __name__ == "__main__":
         
         #Clear previous steps
         axT.clear()
+        axT.set_xlabel("$x$", fontsize=18)
+        axT.set_ylabel("$y$", fontsize=18)
         
-        axT.set_xlabel("$x$")
-        axT.set_ylabel("$y$")
-        axT.set_title("$T(x,y)$")
+        axT.set_title("$T(x,y)$, " + f"$t = {t:1.2f}$", fontsize=20)
+        #axT.set_title("$T(x,y)$", fontsize=21)
         
         #Update data for T
         dset_T = dsets_T[t]  # T-dictionary at time t
@@ -205,16 +219,17 @@ if __name__ == "__main__":
         T_r_high_res = f(Y_high_res[:, 0], X_high_res[0, :])
         
         im_T = axT.pcolormesh(X_high_res, Y_high_res, T_r_high_res, vmin=0., vmax=1.) # plot of colormap of T
+        axT.tick_params(axis='both', which='major', labelsize=14)
         
-        general_title = f"$t = {t:1.2f}$, "
-        if t < 0.1 and holdpert is False:
-            general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
-        else:
-            if holdpert is False:
-                general_title += f" $u_x(x=0) = u_0$"
-            else:
-                general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
-        figT.suptitle(general_title)
+        general_title = "$T(x,y)$" + f"$t = {t:1.2f}$"
+        #if t < 0.1 and holdpert is False:
+        #    general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        #else:
+        #    if holdpert is False:
+        #        general_title += f" $u_x(x=0) = u_0$"
+        #    else:
+        #        general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        #figT.suptitle(general_title)
         
         return im_T
         #plt.cla()  # Clear the current axes
@@ -225,10 +240,11 @@ if __name__ == "__main__":
         
         #Clear previous steps
         axux.clear()
+        axux.set_xlabel("$x$", fontsize=18)
+        axux.set_ylabel("$y$", fontsize=18)
         
-        axux.set_xlabel("$x$")
-        axux.set_ylabel("$y$")
-        axux.set_title("$u_x(x,y)$")
+        #axux.set_title("$u_x(x,y)$, " + f"$t = {t:1.2f}$", fontsize=20)
+        axux.set_title("$u_x(x,y)$", fontsize=21)
         
         # Update data for ux
         dset_T = dsets_T[t]  # T-dictionary at time t
@@ -251,16 +267,17 @@ if __name__ == "__main__":
         ux_r_high_res = f(Y_high_res[:, 0], X_high_res[0, :])
         
         im_ux = axux.pcolormesh(X_high_res, Y_high_res, ux_r_high_res, vmin=overall_min_ux, vmax=overall_max_ux) # plot of colormap of ux
+        axux.tick_params(axis='both', which='major', labelsize=14)
         
-        general_title = f"$t = {t:1.2f}$, "
-        if t < 0.1 and holdpert is False:
-            general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
-        else:
-            if holdpert is False:
-                general_title += f" $u_x(x=0) = u_0$"
-            else:
-                general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
-        figux.suptitle(general_title)
+        general_title = "$u_x(x,y)$" + f"$t = {t:1.2f}$"
+        #if t < 0.1 and holdpert is False:
+        #    general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        #else:
+        #    if holdpert is False:
+        #        general_title += f" $u_x(x=0) = u_0$"
+        #    else:
+        #        general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        #figux.suptitle(general_title)
         
         return im_ux
         
@@ -270,10 +287,10 @@ if __name__ == "__main__":
         
         #Clear previous steps
         axuy.clear()
+        axuy.set_xlabel("$x$", fontsize=16)
+        axuy.set_ylabel("$y$", fontsize=16)
         
-        axuy.set_xlabel("$x$")
-        axuy.set_ylabel("$y$")
-        axuy.set_title("$u_y(x,y)$")
+        axuy.set_title("$u_y(x,y)$, " + f"$t = {t:1.2f}$", fontsize=20)
         
         # Update data for ux
         dset_T = dsets_T[t]  # T-dictionary at time t
@@ -292,29 +309,32 @@ if __name__ == "__main__":
         uy_r = -beta**-T_r * grad_py
         
         # Interpolate the data to higher resolution using RectBivariateSpline
-        f = RectBivariateSpline(y_sort, x_sort, ux_r)
+        f = RectBivariateSpline(y_sort, x_sort, uy_r)
         uy_r_high_res = f(Y_high_res[:, 0], X_high_res[0, :])
         
         im_uy = axuy.pcolormesh(X_high_res, Y_high_res, uy_r_high_res, vmin=overall_min_uy, vmax=overall_max_uy) # plot of colormap of ux
+        axuy.tick_params(axis='both', which='major', labelsize=14)
         
-        general_title = f"$t = {t:1.2f}$, "
-        if t < 0.1 and holdpert is False:
-            general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
-        else:
-            if holdpert is False:
-                general_title += f" $u_x(x=0) = u_0$"
-            else:
-                general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
-        figuy.suptitle(general_title)
+        general_title = "$u_y(x,y)$" + f"$t = {t:1.2f}$"
+        #if t < 0.1 and holdpert is False:
+        #    general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        #else:
+        #    if holdpert is False:
+        #        general_title += f" $u_x(x=0) = u_0$"
+        #    else:
+        #        general_title += f" $u_x(x=0) = u_0 + \\epsilon sin(2\pi y/L_y)$"
+        # figuy.suptitle(general_title)
         
         return im_uy
     
     print('making video for T')
-    animation_T = FuncAnimation(figT, update_T, frames=num_frames, blit=False)
-    animation_T.save(out_dir + '/T.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
-    print('making video for ux')
-    animation_ux = FuncAnimation(figux, update_ux, frames=num_frames, blit=False)
-    animation_ux.save(out_dir + '/ux.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
-    print('making video for uy')
-    animation_uy = FuncAnimation(figuy, update_uy, frames=num_frames, blit=False)
-    animation_uy.save(out_dir + '/uy.mp4', fps=10, extra_args=['-vcodec', 'libx264'])
+    animation_T = animation.FuncAnimation(figT, update_T, frames=num_frames, blit=False)
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=1800)
+    animation_T.save(out_dir + '/T.mp4', writer=writer)
+    #print('making video for ux')
+    #animation_ux = FuncAnimation(figux, update_ux, frames=num_frames, blit=False)
+    #animation_ux.save(out_dir + '/ux.mp4', fps=60, extra_args=['-vcodec', 'libx264'])
+    #print('making video for uy')
+    #animation_uy = FuncAnimation(figuy, update_uy, frames=num_frames, blit=False)
+    #animation_uy.save(out_dir + '/uy.mp4', fps=60, extra_args=['-vcodec', 'libx264'])

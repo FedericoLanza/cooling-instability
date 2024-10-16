@@ -104,7 +104,7 @@ if __name__ == "__main__":
                     k_linear_, gamma_linear_ = read_table(path_gamma_linear)
                     
                     index_max = np.argmax(gamma_linear_)
-                    range = 11
+                    range = 7
                     k_fit_ = k_linear_[index_max-range//2 : index_max+range//2+1]
                     gamma_fit_ = gamma_linear_[index_max-range//2 : index_max+range//2+1]
                     

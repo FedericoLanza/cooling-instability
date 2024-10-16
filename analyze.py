@@ -1,15 +1,15 @@
 import argparse
-import os
-import math
-import meshio
-from utils import parse_xdmf
 import h5py
-import numpy as np
+import math
 import matplotlib.pyplot as plt
+import meshio
+import numpy as np
+import os
 from matplotlib.animation import FuncAnimation
 from matplotlib import tri
 from scipy.interpolate import RectBivariateSpline
 from sklearn.linear_model import LinearRegression
+from utils import parse_xdmf
 
 # ciao
 

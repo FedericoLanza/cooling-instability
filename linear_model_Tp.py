@@ -51,7 +51,7 @@ if __name__ == "__main__":
     eps = args.eps # 1e-1
     tpert = args.tpert # 0.1
 
-    plot_intv = 100
+    plot_intv = 50
 
     kappa = 1/Pe
     kappa_par = 2.0 / 105 * Pe # equivalent to (2.0 / 105) * Pe
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     plot = True
 
     #for lam_ in [pow(2,a) for a in np.arange(4., 8., 0.5)]:
-    for k_ in np.arange(2, 2.25, 0.25):
+    for k_ in np.arange(1, 1.25, 0.25):
         #k_ = 2*np.pi/lam_
         k.assign(k_)
         
@@ -154,7 +154,7 @@ if __name__ == "__main__":
         print('after resetting: w_.vector() = ', w_.vector()[:])
         
         fig, axp = plt.subplots(1, 2, figsize=(15, 5))
-        fig, axT = plt.subplots(1, 2, figsize=(15, 5))
+        fig, axT = plt.subplots(1, 1)
         
         while t < tmax:
             print('t = ', t)
@@ -192,10 +192,10 @@ if __name__ == "__main__":
                 axp[0].set_xlim(0, 20)
                 axp[1].set_xlim(0, 20)
             
-                axT[0].plot(x.vector()[:], T__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot T vs x
-                axT[1].plot(x.vector()[:], T__.vector()[:]/Tmax, label=f"$t={t:1.2f}$", color=color) # plot T/Tmax vs x
-                axT[0].set_xlim(0, 20)
-                axT[1].set_xlim(0, 20)
+                axT.plot(x.vector()[:], T__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot T vs x
+                #axT[1].plot(x.vector()[:], T__.vector()[:]/Tmax, label=f"$t={t:1.2f}$", color=color) # plot T/Tmax vs x
+                axT.set_xlim(0, 20)
+                #axT[1].set_xlim(0, 20)
         
 
         data = np.array(data)
@@ -217,8 +217,8 @@ if __name__ == "__main__":
         Gamma_str = f"Gamma_{Gamma:.10g}"
         beta_str = f"beta_{beta:.10g}"
         output_folder = f"results/output_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
-        with open(output_folder + "gamma_linear.txt", "a") as file:
-            file.write(f"\n{k_}\t{gamma}\t{gamma_standard_error}")
+        #with open(output_folder + "gamma_linear.txt", "a") as file:
+            #file.write(f"\n{k_}\t{gamma}\t{gamma_standard_error}")
         
     # xdmff_T.close()
     # xdmff_p.close()
@@ -231,7 +231,7 @@ if __name__ == "__main__":
     
         ax_.plot(data[:, 0], data[:, 1]) # plot Tmax vs time
         #ax_.plot(data[:, 0], data[:, 2], label=r"$p_{\rm max}$")  # plot pmax vs time
-        ax_.plot(data[istart:, 0], np.exp(gamma*data[istart:, 0]), label=r"fit") # plot fitting line
+        ax_.plot(data[istart:, 0], 0.001*np.exp(gamma*data[istart:, 0]), label=r"fit") # plot fitting line
         ax_.semilogy()
         ax_.set_xlabel(r"$t$")
         ax_.set_ylabel(r"$T_{\rm max}$")
@@ -246,25 +246,26 @@ if __name__ == "__main__":
     axp[1].plot(x.vector()[:], [50*(np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x.vector()[:]], label="$50*(e^{-\Lambda*x}+e^{-k*x})$", color='black', linestyle='dotted')
     
     #axT[1].plot(x.vector()[:], [x_ * np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$x*e^{-xii*x}$", color='black')
-    axT[1].plot(x.vector()[:], [100*np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$100*e^{-\Lambda*x}$", color='black', linestyle='dashed')
-    axT[1].plot(x.vector()[:], [50*(np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x.vector()[:]], label="$50*(e^{-\Lambda*x}+e^{-k*x})$", color='black', linestyle='dotted')
+    #axT[1].plot(x.vector()[:], [100*np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$100*e^{-\Lambda*x}$", color='black', linestyle='dashed')
+    #axT[1].plot(x.vector()[:], [50*(np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x.vector()[:]], label="$50*(e^{-\Lambda*x}+e^{-k*x})$", color='black', linestyle='dotted')
 
     [axpi.set_xlabel(r"$x$") for axpi in axp]
-    [axTi.set_xlabel(r"$x$") for axTi in axT]
-    
+    #[axTi.set_xlabel(r"$x$") for axTi in axT]
+    axT.set_xlabel(r"$x$")
+        
     axp[0].set_ylabel(r"$p_k(x)$")
     axp[1].set_ylabel(r"$p_k(x)/pmax$")
-    axT[0].set_ylabel(r"$T_k(x)$")
-    axT[1].set_ylabel(r"$T_k(x)/Tmax$")
+    axT.set_ylabel(r"$T_k(x)$")
+    #axT[1].set_ylabel(r"$T_k(x)/Tmax$")
     
     axp[0].set_title("p(x)")
     axp[1].set_title("p(x)/p_max")
-    axT[0].set_title("T(x)")
-    axT[1].set_title("T(x)/T_max")
+    axT.set_title("T(x)")
+    #axT[1].set_title("T(x)/T_max")
     
     axp[1].semilogy()
-    axT[1].semilogy()
+    #axT[1].semilogy()
     axp[1].legend()
-    axT[1].legend()
+    axT.legend(fontsize=8)
     
     plt.show()

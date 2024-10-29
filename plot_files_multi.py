@@ -5,7 +5,7 @@ import numpy as np
 import os
 
 # Function to read the last value from the second column of a file
-def read_table(file_path):
+def read_table_all_values(file_path):
     x = []
     y = []
     with open(file_path, 'r') as file:
@@ -22,6 +22,48 @@ def read_table(file_path):
             y.append(float(values[1]))
             
     return x, y
+
+
+def read_table_const_spacing(file_path, spacing=0.01, tolerance=1e-6):
+    x = []
+    y = []
+    
+    with open(file_path, 'r') as file:
+        # Skip the first line (the header)
+        next(file)
+    
+        # Read the remaining lines
+        for line in file:
+            # Split the line into parts (k, gamma, err_gamma)
+            values = line.split()
+            k_val = float(values[0])
+            gamma_val = float(values[1])
+            
+            x.append(k_val)
+            y.append(gamma_val)
+
+    # Detect interval where k values are spaced by approx 0.01
+    interval_x = []
+    interval_y = []
+    
+    i = 1
+    while i < len(x):
+        if abs(x[i] - x[i-1] - spacing) < tolerance:
+            # Start new interval if it's the first point or a continuation of the interval
+            if not interval_x:
+                interval_x.append(x[i-1])
+                interval_y.append(y[i-1])
+            
+            # Add the current point to the interval
+            interval_x.append(x[i])
+            interval_y.append(y[i])
+        else:
+            # Stop once the interval breaks
+            if interval_x:
+                break
+        i += 1
+
+    return interval_x, interval_y
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
@@ -65,7 +107,7 @@ if __name__ == "__main__":
         beta_ = [beta]
         
     if Gamma == None:
-        Gamma_ = [1] + [5*a for a in np.arange(1, 5, 1)]
+        Gamma_ = [2**a for a in np.arange(-1., 3., 1)]
     else:
         Gamma_ = [Gamma]
     
@@ -85,6 +127,7 @@ if __name__ == "__main__":
                 kappa_eff = kappa + kappa_parallel # effective constant diffusion for the base state
                 
                 xi = (- u0 + math.sqrt(u0*u0 + 4*kappa_eff*Gamma)) / (2*kappa_eff) # decay constant for the base state
+                print("Pe = ", Pe, ", beta = ", beta, ", Gamma = ", Gamma)
                 print("xi = ", xi)
                 
                 Pe_str = f"Pe_{Pe:.10g}"
@@ -101,12 +144,16 @@ if __name__ == "__main__":
                     #ax.scatter([2*math.pi/Ly for Ly in Ly_full_], gamma_full_, label="full") # Plot gamma vs k from complete simulations
                 
                 if os.path.isfile(path_gamma_linear):
-                    k_linear_, gamma_linear_ = read_table(path_gamma_linear)
+                    k_linear_, gamma_linear_ = read_table_all_values(path_gamma_linear)
+                    k_fit_, gamma_fit_ = read_table_const_spacing(path_gamma_linear)
                     
-                    index_max = np.argmax(gamma_linear_)
-                    range = 7
-                    k_fit_ = k_linear_[index_max-range//2 : index_max+range//2+1]
-                    gamma_fit_ = gamma_linear_[index_max-range//2 : index_max+range//2+1]
+                    #print("k_fit_ = ", k_fit_)
+                    #print("gamma_fit_ = ", gamma_fit_)
+                    
+                    #index_max = np.argmax(gamma_linear_)
+                    #range = 5
+                    #k_fit_ = k_linear_[index_max-range//2 : index_max+range//2+1]
+                    #gamma_fit_ = gamma_linear_[index_max-range//2 : index_max+range//2+1]
                     
                     popt, pcov = np.polyfit(k_fit_, gamma_fit_, 2, cov=True)
                     a = popt[0]
@@ -121,11 +168,12 @@ if __name__ == "__main__":
                     gamma_max_sigma = np.sqrt( a_var * (b**2/(4*a**2))**2 + b_var * (b/(2*a))**2 + c_var )
                     with open(output_folder + "k_max.txt", 'a') as output_file:
                         output_file.write(f"{Pe}\t{Gamma}\t{beta}\t{k_max}\t{k_max_sigma}\t{gamma_max}\t{gamma_max_sigma}\n")
-                    
-                    ax.scatter([k for k in k_linear_], gamma_linear_, label=beta_str) # Plot gamma vs k from linear stability analysis
+                    k_rescaled_ = [k/xi for k in k_linear_]
+                    gamma_rescaled_ = [(gamma + Gamma)/xi for gamma in gamma_linear_]
+                    ax.scatter(k_fit_, gamma_fit_, label=Gamma_str) # Plot gamma vs k from linear stability analysis
                     ax.plot(k_fit_, [a*k**2 + b*k + c for k in k_fit_], color='black', linestyle='solid')
                     
-                k_ = np.arange(0., 16., 0.1)
+                k_ = np.arange(0., 10., 0.1)
                 ax.plot(k_, [0 for k in k_], color='black', linestyle='dashed')
                 #ax.axvline(xi, color='black', linestyle='dotted', label="xi") # plot value of xi
     
@@ -133,5 +181,5 @@ if __name__ == "__main__":
     ax.set_ylabel(r"$\gamma$")
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.legend(fontsize="large")
-    fig.savefig(output_folder + "gamma_linear_" + "_".join([Pe_str, Gamma_str]) + ".png", dpi=300)
+    fig.savefig(output_folder + "gamma_linear_" + "_".join([Pe_str, beta_str]) + ".png", dpi=300)
     plt.show()

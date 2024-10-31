@@ -13,7 +13,7 @@ def parse_arguments():
     return parser.parse_args()
 
 # Load and filter the data
-def load_data(file_path='results/output_mix/k_max_3.txt'):
+def load_data(file_path='results/output_mix/k_max_4.txt'):
     data = np.loadtxt(file_path, skiprows=1)
     Pe = data[:, 0]
     Gamma = data[:, 1]

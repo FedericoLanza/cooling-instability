@@ -13,12 +13,12 @@ Lx = 50
 tmax = 10
 
 #Pe_ = [10**a for a in np.arange(0., 4., 1)]
-beta_ = [10**a for a in np.arange(-0.5, -0., 1)]
+#beta_ = [10**a for a in np.arange(-4.5, 0., 1)]
 #Gamma_ = [2**a for a in np.arange(-1., 3., 1)]
 
-Pe_ = [100]
-#beta_ = [0.001]
-Gamma_ = [1, 0.5]
+Pe_ = [1, 10, 1000]
+beta_ = [0.1]
+Gamma_ = [1]
 
 #print("Pe_ = ", Pe_)
 #print("beta_ = ", beta_)
@@ -60,7 +60,7 @@ for Pe in Pe_:
                 for k in np.arange(0., 10.25, 0.25):
                 
                     # Construct the command to be executed
-                    command_linear_model = f"python3 linear_model_Tu.py {Pe} {k} {Gamma} {beta} {eps} {tpert} {dt} {nx} {Lx} {tmax}"
+                    command_linear_model = f"python3 linear_model_Tu.py -Pe {Pe} -k {k} -Gamma {Gamma} -beta {beta} -eps {eps} -tpert {tpert} -dt {dt} -nx {nx} -Lx {Lx} -tmax {tmax}"
                 
                     # Print the command to be executed
                     print(f"Executing: {command_linear_model}")
@@ -74,7 +74,7 @@ for Pe in Pe_:
                     print("k_max = ", k_max)
                     for k in np.arange(max(k_max - 0.1,0.01) , k_max + 0.11, 0.01):
                         # Construct the command to be executed
-                        command_linear_model = f"python3 linear_model_Tu.py {Pe} {k} {Gamma} {beta} {eps} {tpert} {dt} {nx} {Lx} {tmax}"
+                        command_linear_model = f"python3 linear_model_Tu.py -Pe {Pe} -k {k} -Gamma {Gamma} -beta {beta} -eps {eps} -tpert {tpert} -dt {dt} -nx {nx} -Lx {Lx} -tmax {tmax}"
                 
                         # Print the command to be executed
                         print(f"Executing: {command_linear_model}")

@@ -60,7 +60,8 @@ if __name__ == "__main__":
     kappa_eff = kappa + kappa_par
     psi = -np.log(beta)
     xi = (- 1 + np.sqrt(1 + 4*kappa_eff*Gamma))/(2*kappa_eff)
-
+    
+    print('Pe = ', Pe, ', beta = ', beta, ', Gamma = ', Gamma)
     print('kappa_eff = ', kappa_eff, ', xi = ', xi, ', 1/xi = ',1.0/xi)
 
     # define mesh
@@ -140,7 +141,10 @@ if __name__ == "__main__":
 
     #for lam_ in [pow(2,a) for a in np.arange(4., 8., 0.5)]:
     for k_ in np.arange(1, 1.25, 0.25):
+    
         #k_ = 2*np.pi/lam_
+        print('k = ', k_)
+        
         k.assign(k_)
         
         data = []
@@ -151,14 +155,14 @@ if __name__ == "__main__":
         print('before resetting: w_.vector() = ', w_.vector()[:])
         # Resetting all components of the mixed function to zero
         w_.vector().zero()
-        print('after resetting: w_.vector() = ', w_.vector()[:])
+        #print('after resetting: w_.vector() = ', w_.vector()[:])
         
         fig, axp = plt.subplots(1, 2, figsize=(15, 5))
         fig, axT = plt.subplots(1, 1)
         
         while t < tmax:
             print('t = ', t)
-            print('before solving: w_.vector() = ', w_.vector()[:])
+            #print('before solving: w_.vector() = ', w_.vector()[:])
             it += 1
 
             if t > tpert:
@@ -172,8 +176,8 @@ if __name__ == "__main__":
 
             T__, p__ = w_.split(deepcopy=True)
             
-            print(f'T__.vector() = {T__.vector()[:]}')
-            print(f'p__.vector() = {p__.vector()[:]}')
+            #print(f'T__.vector() = {T__.vector()[:]}')
+            #print(f'p__.vector() = {p__.vector()[:]}')
             
             #T__.rename("T", "T")
             #p__.rename("p", "p")

@@ -170,7 +170,7 @@ if __name__ == "__main__":
                         output_file.write(f"{Pe}\t{Gamma}\t{beta}\t{k_max}\t{k_max_sigma}\t{gamma_max}\t{gamma_max_sigma}\n")
                     k_rescaled_ = [k/xi for k in k_linear_]
                     gamma_rescaled_ = [(gamma + Gamma)/xi for gamma in gamma_linear_]
-                    ax.scatter(k_fit_, gamma_fit_, label=Gamma_str) # Plot gamma vs k from linear stability analysis
+                    ax.scatter(k_linear_, gamma_linear_, label=Pe_str) # Plot gamma vs k from linear stability analysis
                     ax.plot(k_fit_, [a*k**2 + b*k + c for k in k_fit_], color='black', linestyle='solid')
                     
                 k_ = np.arange(0., 10., 0.1)
@@ -181,5 +181,5 @@ if __name__ == "__main__":
     ax.set_ylabel(r"$\gamma$")
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.legend(fontsize="large")
-    fig.savefig(output_folder + "gamma_linear_" + "_".join([Pe_str, beta_str]) + ".png", dpi=300)
+    fig.savefig(output_folder + "gamma_linear_" + "_".join([beta_str, Gamma_str]) + ".png", dpi=300)
     plt.show()

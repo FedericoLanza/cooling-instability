@@ -21,16 +21,16 @@ class Right(df.SubDomain):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve the linearised model")
-    parser.add_argument("Pe", default=100.0, type=float, help="Peclet number")
-    parser.add_argument("k", default=2.0, type=float, help="Wavelength")
-    parser.add_argument("Gamma", default=1.0, type=float, help="Heat conductivity")
-    parser.add_argument("beta", default=0.001, type=float, help="Viscosity ratio")
-    parser.add_argument("eps", default=1e-3, type=float, help="Perturbation amplide")
-    parser.add_argument("tpert", default=0.1, type=float, help="Perturbation duration")
-    parser.add_argument("dt", default=0.01, type=float, help="Timestep")
-    parser.add_argument("nx", default=1000, type=int, help="Number of mesh points")
-    parser.add_argument("Lx", default=50.0, type=float, help="System size")
-    parser.add_argument("tmax", default=10.0, type=float, help="Total time")
+    parser.add_argument("-Pe", default=100.0, type=float, help="Peclet number")
+    parser.add_argument("-k", default=0.0, type=float, help="Wavelength")
+    parser.add_argument("-Gamma", default=1.0, type=float, help="Heat conductivity")
+    parser.add_argument("-beta", default=0.1, type=float, help="Viscosity ratio")
+    parser.add_argument("-eps", default=1e-3, type=float, help="Perturbation amplide")
+    parser.add_argument("-tpert", default=0.1, type=float, help="Perturbation duration")
+    parser.add_argument("-dt", default=0.01, type=float, help="Timestep")
+    parser.add_argument("-nx", default=1000, type=int, help="Number of mesh points")
+    parser.add_argument("-Lx", default=50.0, type=float, help="System size")
+    parser.add_argument("-tmax", default=10.0, type=float, help="Total time")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -182,6 +182,9 @@ if __name__ == "__main__":
     gamma = popt[0]
     gamma_variance = pcov[0, 0]
     gamma_standard_error = np.sqrt(gamma_variance)
+    
+    #print(f"gamma = {gamma}")
+    #print(f"gamma_standard_error = {gamma_standard_error}")
     
     # write the gamma value in the related file
     Pe_str = f"Pe_{Pe:.10g}"

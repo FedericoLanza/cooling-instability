@@ -17,7 +17,7 @@ tmax = 10
 #Gamma_ = [2**a for a in np.arange(-1., 3., 1)]
 
 Pe_ = [1, 10, 1000]
-beta_ = [0.1]
+beta_ = [0.316227766]
 Gamma_ = [1]
 
 #print("Pe_ = ", Pe_)

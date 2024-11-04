@@ -25,8 +25,8 @@ parser.add_argument('Lx', type=float, help='Value for system size')
 parser.add_argument('dt', type=float, help='Value for time interval')
 parser.add_argument('t_pert', type=float, help='Value for perturbation time')
 parser.add_argument('t_end', type=float, help='Value for final time')
-parser.add_argument('ny', type=float, help='Value for tile density along y')
-parser.add_argument('rtol', type=float, help='Value for error function')
+#parser.add_argument('ny', type=float, help='Value for tile density along y')
+#parser.add_argument('rtol', type=float, help='Value for error function')
 parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
 parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
 
@@ -83,10 +83,12 @@ start_time = time.time()
 
 if __name__ == "__main__":
     
-    ny = args.ny # tile density along y
+    nx = 2 # tile density along x
+    ny = 100 # tile density along y
+    #ny = args.ny # tile density along y
     
-    Nx = 100 # number of tiles along x ( = Number of divisions along the x-axis)
-    Ny = int(ny*Ly) # number of tiles along y ( = Number of divisions along the y-axis). Proportional to the length Ly to be coherent in resolution between simulations with different Ly
+    Nx = int(nx*Lx) # number of tiles along x ( = Number of divisions along the x-axis)
+    Ny = int(ny*Ly) # number of tiles along y ( = Number of divisions along the y-axis. Proportional to the length Ly to be coherent in resolution between simulations with different Ly)
     
     # Global parameters
     Pe = args.Pe # Peclet number
@@ -111,8 +113,8 @@ if __name__ == "__main__":
     t_end = args.t_end # final time (default value: 50.01)
     dump_intv = 10 # saving interval
     
-    #rtol = 1e-14 # tolerance for solving linear problem
-    rtol = args.rtol # tolerance for solving linear problem
+    rtol = 1e-14 # tolerance for solving linear problem
+    #rtol = args.rtol # tolerance for solving linear problem
     
     # Generate mesh
     def mesh_warp_x(x): # function for non-constant length of grid along x
@@ -259,12 +261,12 @@ if __name__ == "__main__":
     ueps_str = f"ueps_{ueps:.10g}"
     Ly_str = f"Ly_{Ly:.10g}"
     Lx_str = f"Lx_{Lx:.10g}"
-    ny_str = f"ny_{ny:.10g}"
-    rtol_str = f"rtol_{rtol:.10g}"
+    #ny_str = f"ny_{ny:.10g}"
+    #rtol_str = f"rtol_{rtol:.10g}"
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str, ny_str, rtol_str]) + "_2periods/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
     # xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")

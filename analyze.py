@@ -22,10 +22,8 @@ def parse_args():
     parser.add_argument('Ly', type=float, help='Value for wavelength')
     parser.add_argument('Lx', type=float, help='Value for system size')
     parser.add_argument('dt', type=float, help='Value for time interval')
-    # parser.add_argument('t_pert', type=float, help='Value for perturbation time')
-    # parser.add_argument('t_end', type=float, help='Value for final time')
-    parser.add_argument('ny', type=float, help='Value for tile density along y')
-    parser.add_argument('rtol', type=float, help='Value for error function')
+    #parser.add_argument('ny', type=float, help='Value for tile density along y')
+    #parser.add_argument('rtol', type=float, help='Value for error function')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
     # parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
@@ -55,8 +53,8 @@ if __name__ == "__main__":
     xi = ( - u0 + math.sqrt(u0*u0 + 4*kappa_eff*Gamma)) / (2*kappa_eff) # decay constant for the base state
     
     # resolution parameters
-    ny = args.ny
-    rtol = args.rtol
+    #ny = args.ny
+    #rtol = args.rtol
     
     # flags
     rnd = args.rnd
@@ -68,12 +66,12 @@ if __name__ == "__main__":
     ueps_str = f"ueps_{ueps:.10g}"
     Ly_str = f"Ly_{Ly:.10g}"
     Lx_str = f"Lx_{Lx:.10g}"
-    ny_str = f"ny_{ny:.10g}"
-    rtol_str = f"rtol_{rtol:.10g}"
+    #ny_str = f"ny_{ny:.10g}"
+    #rtol_str = f"rtol_{rtol:.10g}"
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str, ny_str, rtol_str]) + "_2periods/" # directoty for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -180,7 +178,7 @@ if __name__ == "__main__":
             #ax1[1].plot(y_sort, gauss, linestyle='dotted', color='black')
         ax1[0].set_ylabel("$T$")
         ax1[1].set_ylabel("$u_x$")
-        ax1[0].legend(fontsize='small')
+        #ax1[0].legend(fontsize='small')
         [axi.set_xlabel("$y$") for axi in ax1]
         fig1.savefig(out_dir + '/fx.png', dpi=300)
         
@@ -273,7 +271,7 @@ if __name__ == "__main__":
         plt.show()
         plt.close()
 
-    #exit(0)
+    exit(0)
     
     # Analyze time evolution
     
@@ -341,8 +339,8 @@ if __name__ == "__main__":
         #    axTk[0].plot(x_high_res, Tprime_r[ny//4][:], label=f"$t={t:1.2f}$", color=color) # plot u_max vs t
         #    axTk[1].plot(x_high_res, Tprime_r[ny//4][:]/Tprime_r.max(), label=f"$t={t:1.2f}$", color=color) # plot u_max vs t
     
-    t_i = 20 # initial time of growth rate measurement
-    t_f = 30 # final time of growth rate measurement
+    t_i = 2.5 # initial time of growth rate measurement
+    t_f = 6 # final time of growth rate measurement
     
     n_i = int(n_steps * t_i/t_end)
     n_f = int(n_steps * t_f/t_end)
@@ -419,7 +417,7 @@ if __name__ == "__main__":
         xbase = -math.log(level) / xi
         axf[0].plot(t_[:n_steps], xmax[level][:n_steps] - xmax[level][0], color=color) # plot xmax vs t for each level
         axf[1].plot(t_[:n_steps], np.abs(xmin[level][:n_steps] - xmin[level][0]), color=color) # plot xmin vs t for each level
-        axf[2].plot(t_[1:n_steps*4//5], (xmax[level][1:n_steps*4//5] - xmin[level][1:n_steps*4//5]), label=f"$T={level:1.2f}$", color=color) # plot span vs t for each level
+        axf[2].plot(t_[1:n_steps], (xmax[level][1:n_steps] - xmin[level][1:n_steps]), label=f"$T={level:1.2f}$", color=color) # plot span vs t for each level
         
         # Save xspan vs t in file .txt
         xspan_data =  np.column_stack(( t_[1:n_steps], xmax[level][1:n_steps] - xmin[level][1:n_steps] ))

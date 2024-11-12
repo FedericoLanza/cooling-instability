@@ -69,7 +69,7 @@ if __name__ == "__main__":
     many = args.many
     
     if many is True:
-        Pe_ = [pow(10,a) for a in np.arange(0.75, 3, 0.5)] # List of wavelengths
+        Pe_ = [pow(10,a) for a in np.arange(0., 3.75, 0.5)] # List of multiple values
         for Pe_value in Pe_:
             filename = f"Pe_{Pe_value}_Gamma_{Gamma}_beta_{beta}_ueps_{ueps}_Ly_{Ly}_Lx_{Lx}_rnd_{rnd}_holdpert_{holdpert}.sh"
     

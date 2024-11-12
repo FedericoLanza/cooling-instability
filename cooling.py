@@ -84,7 +84,7 @@ start_time = time.time()
 if __name__ == "__main__":
     
     nx = 2 # tile density along x
-    ny = 100 # tile density along y
+    ny = 50 # tile density along y
     #ny = args.ny # tile density along y
     
     Nx = int(nx*Lx) # number of tiles along x ( = Number of divisions along the x-axis)

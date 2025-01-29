@@ -1,3 +1,5 @@
+# Python program for plotting k_max or gamma_max as a function of Pe, Gamma, beta
+
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
@@ -13,7 +15,7 @@ def parse_arguments():
     return parser.parse_args()
 
 # Load and filter the data
-def load_data(file_path='results/output_mix/k_max_5.txt'):
+def load_data(file_path='results/output_mix/k_max_pt.txt'):
     data = np.loadtxt(file_path, skiprows=1)
     Pe = data[:, 0]
     Gamma = data[:, 1]
@@ -70,42 +72,58 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
         x_data = variables[x_variable][mask_fixed][mask_vary]
         y_plot_data = y_filtered[mask_vary]
         y_err_plot_data = y_err_filtered[mask_vary]
+        
+        if y_variable == 'k_max' and vary_variable == 'beta': # rescale data
+            y_plot_data = [-yy/np.log(val) for yy in y_plot_data]
+            y_err_plot_data = y_err_filtered[mask_vary]
 
         # Scatter plot with error bars
         plt.errorbar(x_data, y_plot_data, yerr=y_err_plot_data, label=f'{vary_variable} = {val}', capsize=3, fmt='o')
 
-    # Set x-axis scale to logarithmic if Pe is the x-variable
     if x_variable == 'Pe':
         plt.xscale('log')
         
-    # Plot the xi function if x_variable is Pe and y_variable is k_max
-    if x_variable == 'Pe' and y_variable == 'k_max':
-        Pe_min = np.min(Pe_filtered)
-        Pe_max = np.max(Pe_filtered)
-        Pe_curve = np.logspace(np.log10(Pe_min), np.log10(Pe_max), 100)  # Generate Pe values for the curve
-        k_eff_curve = 1 / Pe_curve + 2 * Pe_curve / 105  # k_eff = 1/Pe + 2*Pe/105
+        #  Plot the xi function if y_variable is k_max
+        if y_variable == 'k_max':
+            Pe_min = np.min(Pe_filtered)
+            Pe_max = np.max(Pe_filtered)
+            Pe_curve = np.logspace(np.log10(Pe_min), np.log10(Pe_max), 100)  # Generate Pe values for the curve
+            k_eff_curve = 1 / Pe_curve + 2 * Pe_curve / 105  # k_eff = 1/Pe + 2*Pe/105
 
-        # Check if we should use a fixed Gamma or vary Gamma
-        if fixed_variable == 'Gamma':
-            Gamma_value = fixed_value
-            xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_value * k_eff_curve)) / (2 * k_eff_curve)
-            plt.plot(Pe_curve, xi_curve, color='black', linestyle='-', linewidth=2, label=r'$\xi$ function for fixed $\Gamma$')
+            # Check if we should use a fixed Gamma or vary Gamma
+            if fixed_variable == 'Gamma':
+                Gamma_value = fixed_value
+                xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_value * k_eff_curve)) / (2 * k_eff_curve)
+                xi_curve_resc = [xi*np.log()]
+                plt.plot(Pe_curve, xi_curve, color='black', linestyle='--', linewidth=2, label=r'$\xi = (-1 \pm \sqrt{1 + 4 \Gamma \kappa_{eff}})/(2\kappa_{eff})$') # Plot xi curve
 
-        elif vary_variable == 'Gamma':
-            # Plot xi for each Gamma value in vary_values
-            for idx, Gamma_val in enumerate(vary_values):
-                xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_val * k_eff_curve)) / (2 * k_eff_curve)
-                plt.plot(Pe_curve, xi_curve, linestyle='-', linewidth=2, label=r'$\xi$ function for $\Gamma$ = ' + f'{Gamma_val}')
+            elif vary_variable == 'Gamma':
+                # Plot xi for each Gamma value in vary_values
+                for idx, Gamma_val in enumerate(vary_values):
+                    xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_val * k_eff_curve)) / (2 * k_eff_curve)
+                    plt.plot(Pe_curve, xi_curve, linestyle='--', linewidth=2, label=r'$\xi$ = $\xi$(Pe, $\Gamma$ = ' + f'{Gamma_val}' + ')' ) # Plot xi curves
         
-    if x_variable == 'Gamma'and y_variable == 'k_max':
+    if x_variable == 'Gamma':
         plt.xscale('log')
         plt.yscale('log')
-        Gamma_min = np.min(Gamma_filtered)
-        Gamma_max = np.max(Gamma_filtered)
-        Gamma_curve = np.logspace(np.log10(Gamma_min), np.log10(Gamma_max), 100)  # Generate Pe values for the curve
-        kappa_eff = 1. / 100 + 2 * 100. / 105
-        xi = (-1 + np.sqrt(1 + 4*Gamma_curve*kappa_eff) )/ (2*kappa_eff)
-        plt.plot(Gamma_curve, xi, color='black', label='xi', linestyle='-', linewidth=2)
+        
+        if y_variable == 'k_max':
+            Gamma_min = np.min(Gamma_filtered)
+            Gamma_max = np.max(Gamma_filtered)
+            Gamma_curve = np.logspace(np.log10(Gamma_min), np.log10(Gamma_max), 100)  # Generate Gamma values for the curve
+            
+            if fixed_variable == 'Pe':
+                Pe_value = fixed_value
+                kappa_eff = 1. / Pe_value + 2 * Pe_value / 105
+                xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_curve * kappa_eff)) / (2 * kappa_eff)
+                plt.plot(Gamma_curve, xi_curve, color='black', label=r'$\xi$ = $\xi$(Pe = 100, $\Gamma$)', linestyle='--', linewidth=2) # Plot xi curve
+                
+            elif vary_variable == 'Pe':
+                # Plot xi for each Gamma value in vary_values
+                for idx, Pe_val in enumerate(vary_values):
+                    kappa_eff = 1. / Pe_val + 2 * Pe_val / 105
+                    xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_curve * kappa_eff)) / (2 * kappa_eff)
+                    plt.plot(Gamma_curve, xi_curve, linestyle='--', linewidth=2, label=r'$\xi$ = $\xi$(Pe = ' + f'{Pe_val}' ', $\Gamma$)' ) # Plot xi curves
         
     if x_variable == 'beta':
         plt.xscale('log')
@@ -113,6 +131,7 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
     # Add labels and title
     plt.xlabel(x_variable)
     plt.ylabel(y_label)
+    #plt.ylabel(y_label + r'/($\log$ $\beta$)')
     plt.title(f'{y_label} vs {x_variable} for {fixed_variable} = {fixed_value}')
 
     # Remove grid
@@ -126,7 +145,7 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
     plt.legend()
 
     # Save the plot in the results/output_mix directory
-    plt.savefig(f'results/output_mix/{y_label}_vs_{x_variable}_different_{vary_variable}_fixed_{fixed_variable}_{fixed_value}.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'results/output_mix/{y_label}_vs_{x_variable}_different_{vary_variable}_fixed_{fixed_variable}_{fixed_value}_pt.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 

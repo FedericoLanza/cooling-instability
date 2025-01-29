@@ -27,8 +27,8 @@ def parse_args():
     parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
     parser.add_argument('Ly', type=float, help='Value for wavelength')
     parser.add_argument('Lx', type=float, help='Value for system size')
-    parser.add_argument('ny', type=float, help='Value for tile density along y')
-    parser.add_argument('rtol', type=float, help='Value for error function')
+    #parser.add_argument('ny', type=float, help='Value for tile density along y')
+    #parser.add_argument('rtol', type=float, help='Value for error function')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
     return parser.parse_args()
@@ -55,8 +55,8 @@ if __name__ == "__main__":
     lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / (2*Deff) # decay constant for the base state
     
     # resolution parameters
-    ny = args.ny
-    rtol = args.rtol
+    #ny = args.ny
+    #rtol = args.rtol
     
     # flags
     rnd = args.rnd
@@ -68,12 +68,13 @@ if __name__ == "__main__":
     ueps_str = f"ueps_{ueps:.10g}"
     Ly_str = f"Ly_{Ly:.10g}"
     Lx_str = f"Lx_{Lx:.10g}"
-    ny_str = f"ny_{ny:.10g}"
-    rtol_str = f"rtol_{rtol:.10g}"
+    #ny_str = f"ny_{ny:.10g}"
+    #rtol_str = f"rtol_{rtol:.10g}"
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str, ny_str, rtol_str]) + "_2periods/" # directoty for output
+    #out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str, ny_str, rtol_str]) + "_2periods/" # directory for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directory for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -327,14 +328,16 @@ if __name__ == "__main__":
         
         return im_uy
     
-    print('making video for T')
-    animation_T = animation.FuncAnimation(figT, update_T, frames=num_frames, blit=False)
+    #print('making video for T')
+    #animation_T = animation.FuncAnimation(figT, update_T, frames=num_frames, blit=False)
+    #Writer = animation.writers['ffmpeg']
+    #writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=1800)
+    #animation_T.save(out_dir + '/T.mp4', writer=writer)
+    print('making video for ux')
+    animation_ux = animation.FuncAnimation(figux, update_ux, frames=num_frames, blit=False)
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=1800)
-    animation_T.save(out_dir + '/T.mp4', writer=writer)
-    #print('making video for ux')
-    #animation_ux = FuncAnimation(figux, update_ux, frames=num_frames, blit=False)
-    #animation_ux.save(out_dir + '/ux.mp4', fps=60, extra_args=['-vcodec', 'libx264'])
+    animation_ux.save(out_dir + '/ux.mp4', fps=60, extra_args=['-vcodec', 'libx264'])
     #print('making video for uy')
     #animation_uy = FuncAnimation(figuy, update_uy, frames=num_frames, blit=False)
     #animation_uy.save(out_dir + '/uy.mp4', fps=60, extra_args=['-vcodec', 'libx264'])

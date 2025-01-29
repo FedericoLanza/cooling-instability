@@ -67,9 +67,9 @@ def read_table_const_spacing(file_path, spacing=0.01, tolerance=1e-6):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
-    parser.add_argument('--Pe', type=float, help='Value for Peclet number')
-    parser.add_argument('--Gamma', type=float, help='Value for heat transfer ratio')
-    parser.add_argument('--beta', type=float, help='Value for viscosity ratio')
+    parser.add_argument('-Pe', type=float, help='Value for Peclet number')
+    parser.add_argument('-Gamma', type=float, help='Value for heat transfer ratio')
+    parser.add_argument('-beta', type=float, help='Value for viscosity ratio')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -96,18 +96,38 @@ if __name__ == "__main__":
     beta_ = []
     Gamma_ = []
     
+    Pe_str = None
+    beta_str = None
+    Gamma_str = None
+    whos_none = None # 0: Pe is None, 1: beta is None, 2: 1: Gamma is None
+    
     if Pe == None:
+        whos_none = 0
         Pe_ = [10**a for a in np.arange(0, 4, 1)]
+        
+        beta_str = f"beta_{beta:.10g}"
+        Gamma_str = f"Gamma_{Gamma:.10g}"
+        output_image = "gamma_linear_" + "_".join([beta_str, Gamma_str]) + ".png"
     else:
         Pe_ = [Pe]
         
     if beta == None:
+        whos_none = 1
         beta_ = [10**a for a in np.arange(-5., -1., 1)]
+        
+        Pe_str = f"Pe_{Pe:.10g}"
+        Gamma_str = f"Gamma_{Gamma:.10g}"
+        output_image = "gamma_linear_" + "_".join([Pe_str, Gamma_str]) + ".png"
     else:
         beta_ = [beta]
         
     if Gamma == None:
+        whos_none = 2
         Gamma_ = [2**a for a in np.arange(-1., 3., 1)]
+                
+        Pe_str = f"Pe_{Pe:.10g}"
+        beta_str = f"beta_{beta:.10g}"
+        output_image = "gamma_linear_" + "_".join([Pe_str, beta_str]) + ".png"
     else:
         Gamma_ = [Gamma]
     
@@ -130,11 +150,18 @@ if __name__ == "__main__":
                 print("Pe = ", Pe, ", beta = ", beta, ", Gamma = ", Gamma)
                 print("xi = ", xi)
                 
-                Pe_str = f"Pe_{Pe:.10g}"
-                Gamma_str = f"Gamma_{Gamma:.10g}"
-                beta_str = f"beta_{beta:.10g}"
-                
-                input_folder= f"results/output_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+                label = None
+                if whos_none == 0:
+                    Pe_str = f"Pe_{Pe:.10g}"
+                    label = Pe_str
+                if whos_none == 1:
+                    beta_str = f"beta_{beta:.10g}"
+                    label = beta_str
+                if whos_none == 2:
+                    Gamma_str = f"Gamma_{Gamma:.10g}"
+                    label = Gamma_str
+                    
+                input_folder = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
                 
                 path_gamma_full = os.path.join(input_folder, file_gamma_full)
                 path_gamma_linear = os.path.join(input_folder, file_gamma_linear)
@@ -150,11 +177,6 @@ if __name__ == "__main__":
                     #print("k_fit_ = ", k_fit_)
                     #print("gamma_fit_ = ", gamma_fit_)
                     
-                    #index_max = np.argmax(gamma_linear_)
-                    #range = 5
-                    #k_fit_ = k_linear_[index_max-range//2 : index_max+range//2+1]
-                    #gamma_fit_ = gamma_linear_[index_max-range//2 : index_max+range//2+1]
-                    
                     popt, pcov = np.polyfit(k_fit_, gamma_fit_, 2, cov=True)
                     a = popt[0]
                     b = popt[1]
@@ -166,11 +188,13 @@ if __name__ == "__main__":
                     k_max_sigma = np.sqrt( a_var * (b/(2*a**2))**2 + b_var * (1/(2*a))**2 )
                     gamma_max = - b**2/(4*a) + c
                     gamma_max_sigma = np.sqrt( a_var * (b**2/(4*a**2))**2 + b_var * (b/(2*a))**2 + c_var )
+                    
                     with open(output_folder + "k_max.txt", 'a') as output_file:
                         output_file.write(f"{Pe}\t{Gamma}\t{beta}\t{k_max}\t{k_max_sigma}\t{gamma_max}\t{gamma_max_sigma}\n")
-                    k_rescaled_ = [k/xi for k in k_linear_]
-                    gamma_rescaled_ = [(gamma + Gamma)/xi for gamma in gamma_linear_]
-                    ax.scatter(k_linear_, gamma_linear_, label=Pe_str) # Plot gamma vs k from linear stability analysis
+                    # k_rescaled_ = [k/xi for k in k_linear_]
+                    # gamma_rescaled_ = [(gamma + Gamma)/xi for gamma in gamma_linear_]
+                    
+                    ax.scatter(k_linear_, gamma_linear_, label=label) # Plot gamma vs k from linear stability analysis
                     ax.plot(k_fit_, [a*k**2 + b*k + c for k in k_fit_], color='black', linestyle='solid')
                     
                 k_ = np.arange(0., 10., 0.1)
@@ -181,5 +205,6 @@ if __name__ == "__main__":
     ax.set_ylabel(r"$\gamma$")
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.legend(fontsize="large")
-    fig.savefig(output_folder + "gamma_linear_" + "_".join([beta_str, Gamma_str]) + ".png", dpi=300)
+    
+    fig.savefig(output_folder + output_image, dpi=300)
     plt.show()

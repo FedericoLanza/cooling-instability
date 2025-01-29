@@ -2,6 +2,7 @@ import dolfin as df
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
+import os
 from mpi4py import MPI
 mpi_size = MPI.COMM_WORLD.Get_size()
 mpi_rank = MPI.COMM_WORLD.Get_rank()
@@ -22,7 +23,7 @@ class Right(df.SubDomain):
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve the linearised model")
     parser.add_argument("-Pe", default=100.0, type=float, help="Peclet number")
-    parser.add_argument("-lam", default=2, type=float, help="Wavelength")
+    parser.add_argument("-k", default=1.0, type=float, help="Wavelength")
     parser.add_argument("-Gamma", default=1.0, type=float, help="Heat conductivity")
     parser.add_argument("-beta", default=0.001, type=float, help="Viscosity ratio")
     parser.add_argument("-eps", default=1e-3, type=float, help="Perturbation amplide")
@@ -45,24 +46,25 @@ if __name__ == "__main__":
     tmax = args.tmax # 10.0
 
     Pe = args.Pe # 10**0.75 #100.0
-    lam = args.lam # 2.0 # 4.0
+    kk = args.k # 2.0 # 4.0
     Gamma = args.Gamma #1.0
     beta = args.beta # 0.001
     eps = args.eps # 1e-1
     tpert = args.tpert # 0.1
 
-    plot_intv = 50
+    plot_intv = 100
+    
+    #k = df.Constant(2*np.pi/lam)
+    k = df.Constant(kk)
 
-    kappa = 1/Pe
+    kappa = 1.0 / Pe
     kappa_par = 2.0 / 105 * Pe # equivalent to (2.0 / 105) * Pe
-    k = df.Constant(2*np.pi/lam)
-
     kappa_eff = kappa + kappa_par
     psi = -np.log(beta)
     xi = (- 1 + np.sqrt(1 + 4*kappa_eff*Gamma))/(2*kappa_eff)
     
-    print('Pe = ', Pe, ', beta = ', beta, ', Gamma = ', Gamma)
-    print('kappa_eff = ', kappa_eff, ', xi = ', xi, ', 1/xi = ',1.0/xi)
+    #print('Pe = ', Pe, ', beta = ', beta, ', Gamma = ', Gamma)
+    #print('kappa_eff = ', kappa_eff, ', xi = ', xi, ', 1/xi = ',1.0/xi)
 
     # define mesh
     mesh = df.UnitIntervalMesh(nx)
@@ -106,7 +108,7 @@ if __name__ == "__main__":
     # define a measure ds to integrate over the marked subdomains of the boundary
     ds = df.Measure("ds", domain=mesh, subdomain_data=subd)
 
-    onoff = df.Constant(1.0)
+    onoff = df.Constant(eps)
 
     # define equations in variational form
     
@@ -116,10 +118,10 @@ if __name__ == "__main__":
         + (kappa * k**2 + Gamma - (2*kappa_par*xi + 1) * psi * xi * T0) * T * U * df.dx \
         - betamT0 * xi * T0 * ( kappa_par * k**2 * p - (2*kappa_par*xi + 1) * p.dx(0) ) * U * df.dx
 
-    Fp = betamT0 * p.dx(0) * q.dx(0) * df.dx \
-        - onoff * eps * q * ds(1) \
+    Fp = + betamT0 * p.dx(0) * q.dx(0) * df.dx \
         + betamT0 * k**2 * p * q * df.dx \
         + psi * T.dx(0) * q * df.dx
+        # - onoff * q * ds(1)
 
     F = FT + Fp
 
@@ -127,9 +129,10 @@ if __name__ == "__main__":
     
     bc_T_l = df.DirichletBC(W.sub(0), 0., subd, 1) # apply T = 0 to the left boundary
     bc_T_r = df.DirichletBC(W.sub(0), 0., subd, 2) # apply T = 0 to the right boundary
-    bc_p_r = df.DirichletBC(W.sub(1), 0., subd, 2) # apply p = 0 to the right boundary
+    bc_p_l = df.DirichletBC(W.sub(1), onoff, subd, 1) # apply p = onoff to the right boundary
+    # bc_p_r = df.DirichletBC(W.sub(1), 0., subd, 2) # apply p = 0 to the right boundary
 
-    bcs = [bc_T_l] #, bc_T_r, bc_p_r]
+    bcs = [bc_T_l, bc_p_l] #, bc_T_r, bc_p_r]
 
     # split equation in left and right member
     a, L = df.lhs(F), df.rhs(F)
@@ -138,108 +141,95 @@ if __name__ == "__main__":
     #xdmff_p = df.XDMFFile(mesh.mpi_comm(), "p.xdmf")
 
     plot = True
-
-    #for lam_ in [pow(2,a) for a in np.arange(4., 8., 0.5)]:
-    for k_ in np.arange(1, 1.25, 0.25):
+        
+    data = []
     
-        #k_ = 2*np.pi/lam_
-        print('k = ', k_)
+    t = 0.0
+    it = 0
         
-        k.assign(k_)
+    fig, axp = plt.subplots(1, 2, figsize=(15, 5))
+    fig, axT = plt.subplots(1, 2, figsize=(15, 5))
         
-        data = []
-        
-        t = 0.0
-        it = 0
-        
-        print('before resetting: w_.vector() = ', w_.vector()[:])
-        # Resetting all components of the mixed function to zero
-        w_.vector().zero()
-        #print('after resetting: w_.vector() = ', w_.vector()[:])
-        
-        fig, axp = plt.subplots(1, 2, figsize=(15, 5))
-        fig, axT = plt.subplots(1, 1)
-        
-        while t < tmax:
-            print('t = ', t)
-            #print('before solving: w_.vector() = ', w_.vector()[:])
-            it += 1
+    while t < tmax:
+        print('t = ', t)
+        #print('before solving: w_.vector() = ', w_.vector()[:])
+        it += 1
 
-            if t > tpert:
-                onoff.assign(0.)
+        if t > tpert:
+            onoff.assign(0.)
 
-            df.solve(a == L, w_, bcs=bcs)
+        df.solve(a == L, w_, bcs=bcs)
             
-            t += dt
+        t += dt
             
-            #print('after solving: w_.vector() = ', w_.vector()[:])
+        #print('after solving: w_.vector() = ', w_.vector()[:])
+        T__, p__ = w_.split(deepcopy=True)
+            
+        #print(f'T__.vector() = {T__.vector()[:]}')
+        #print(f'p__.vector() = {p__.vector()[:]}')
+            
+        #T__.rename("T", "T")
+        #p__.rename("p", "p")
+        #xdmff_T.write(T__, t)
+        #xdmff_p.write(p__, t)
 
-            T__, p__ = w_.split(deepcopy=True)
-            
-            #print(f'T__.vector() = {T__.vector()[:]}')
-            #print(f'p__.vector() = {p__.vector()[:]}')
-            
-            #T__.rename("T", "T")
-            #p__.rename("p", "p")
-            #xdmff_T.write(T__, t)
-            #xdmff_p.write(p__, t)
+        Tmax = np.max(T__.vector()[:])
+        pmax = np.max(p__.vector()[:])
+        data.append([t, Tmax, pmax]) # collect the (t, Tmax, pmax) values
 
-            Tmax = np.max(T__.vector()[:])
-            pmax = np.max(p__.vector()[:])
-            data.append([t, Tmax, pmax]) # collect the (t, Tmax, pmax) values
-
-            if (it % plot_intv == 0 and plot):
-                color = cmap(t / tmax)
-                axp[0].plot(x.vector()[:], p__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot p vs x
-                axp[1].plot(x.vector()[:], p__.vector()[:]/pmax, label=f"$t={t:1.2f}$", color=color) # plot p/pmax vs x
-                # ax[1].plot(x.vector()[:], p__.vector()[:]/pmax)
-                axp[0].set_xlim(0, 20)
-                axp[1].set_xlim(0, 20)
+        if (it % plot_intv == 0 and plot):
+            color = cmap(t / tmax)
+            axp[0].plot(x.vector()[:], p__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot p vs x
+            axp[1].plot(x.vector()[:], p__.vector()[:]/pmax, label=f"$t={t:1.2f}$", color=color) # plot p/pmax vs x
+            # ax[1].plot(x.vector()[:], p__.vector()[:]/pmax)
+            axp[0].set_xlim(0, 20)
+            axp[1].set_xlim(0, 20)
             
-                axT.plot(x.vector()[:], T__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot T vs x
-                #axT[1].plot(x.vector()[:], T__.vector()[:]/Tmax, label=f"$t={t:1.2f}$", color=color) # plot T/Tmax vs x
-                axT.set_xlim(0, 20)
-                #axT[1].set_xlim(0, 20)
+            axT[0].plot(x.vector()[:], T__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot T vs x
+            axT[1].plot(x.vector()[:], T__.vector()[:]/Tmax, label=f"$t={t:1.2f}$", color=color) # plot T/Tmax vs x
+            axT[0].set_xlim(0, 20)
+            axT[1].set_xlim(0, 20)
         
 
-        data = np.array(data)
-        n_steps = len(data[:, 0])
-        istart = int(tmax/dt)//2
-        print("istart = ", istart)
+    data = np.array(data)
+    n_steps = len(data[:, 0])
+    istart = int(tmax/dt)//2
+    print("istart = ", istart)
 
-        # find the growth rate gamma
-        popt, pcov = np.polyfit(data[istart:, 0], np.log(data[istart:, 1]), 1, cov=True)
-        gamma = popt[0]
-        gamma_variance = pcov[0, 0]
-        gamma_standard_error = np.sqrt(gamma_variance)
+    # find the growth rate gamma
+    popt, pcov = np.polyfit(data[istart:, 0], np.log(data[istart:, 1]), 1, cov=True)
+    gamma = popt[0]
+    gamma_variance = pcov[0, 0]
+    gamma_standard_error = np.sqrt(gamma_variance)
     
-        print(f"gamma = {gamma}")
-        print(f"gamma_standard_error = {gamma_standard_error}")
+    print(f"gamma = {gamma}")
+    print(f"gamma_standard_error = {gamma_standard_error}")
     
-        # write the gamma value in the related file
-        Pe_str = f"Pe_{Pe:.10g}"
-        Gamma_str = f"Gamma_{Gamma:.10g}"
-        beta_str = f"beta_{beta:.10g}"
-        output_folder = f"results/output_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
-        #with open(output_folder + "gamma_linear.txt", "a") as file:
-            #file.write(f"\n{k_}\t{gamma}\t{gamma_standard_error}")
+    # write the gamma value in the related file
+    Pe_str = f"Pe_{Pe:.10g}"
+    Gamma_str = f"Gamma_{Gamma:.10g}"
+    beta_str = f"beta_{beta:.10g}"
+    output_folder = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+    #os.makedirs(output_folder, exist_ok=True)
+    with open(output_folder + "gamma_linear.txt", "a") as file:
+        file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
         
     # xdmff_T.close()
     # xdmff_p.close()
     
-    # exit(0)
+    exit(0)
     
     # Plot results
     
-        fig_, ax_ = plt.subplots(1, 1)
+    fig_, ax_ = plt.subplots(1, 1)
     
-        ax_.plot(data[:, 0], data[:, 1]) # plot Tmax vs time
-        #ax_.plot(data[:, 0], data[:, 2], label=r"$p_{\rm max}$")  # plot pmax vs time
-        ax_.plot(data[istart:, 0], 0.001*np.exp(gamma*data[istart:, 0]), label=r"fit") # plot fitting line
-        ax_.semilogy()
-        ax_.set_xlabel(r"$t$")
-        ax_.set_ylabel(r"$T_{\rm max}$")
-        ax_.legend()
+    ax_.plot(data[:, 0], data[:, 1]) # plot Tmax vs time
+    #ax_.plot(data[:, 0], data[:, 2], label=r"$p_{\rm max}$")  # plot pmax vs time
+    ax_.plot(data[istart:, 0], 0.001*np.exp(gamma*data[istart:, 0]), label=r"fit") # plot fitting line
+    ax_.semilogy()
+    ax_.set_xlabel(r"$t$")
+    ax_.set_ylabel(r"$T_{\rm max}$")
+    ax_.legend()
     
     kk = 2
     G = gamma + kk*kappa + Gamma
@@ -254,22 +244,19 @@ if __name__ == "__main__":
     #axT[1].plot(x.vector()[:], [50*(np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x.vector()[:]], label="$50*(e^{-\Lambda*x}+e^{-k*x})$", color='black', linestyle='dotted')
 
     [axpi.set_xlabel(r"$x$") for axpi in axp]
-    #[axTi.set_xlabel(r"$x$") for axTi in axT]
-    axT.set_xlabel(r"$x$")
+    [axTi.set_xlabel(r"$x$") for axTi in axT]
         
     axp[0].set_ylabel(r"$p_k(x)$")
     axp[1].set_ylabel(r"$p_k(x)/pmax$")
-    axT.set_ylabel(r"$T_k(x)$")
-    #axT[1].set_ylabel(r"$T_k(x)/Tmax$")
+    axT[1].set_ylabel(r"$T_k(x)/Tmax$")
     
     axp[0].set_title("p(x)")
     axp[1].set_title("p(x)/p_max")
-    axT.set_title("T(x)")
-    #axT[1].set_title("T(x)/T_max")
+    axT[1].set_title("T(x)/T_max")
     
     axp[1].semilogy()
-    #axT[1].semilogy()
-    axp[1].legend()
-    axT.legend(fontsize=8)
+    axT[1].semilogy()
+    axp[0].legend()
+    axT[0].legend(fontsize=8)
     
     plt.show()

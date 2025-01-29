@@ -24,7 +24,7 @@ def parse_args():
     parser.add_argument("-Pe", default=100.0, type=float, help="Peclet number")
     parser.add_argument("-k", default=0.0, type=float, help="Wavelength")
     parser.add_argument("-Gamma", default=1.0, type=float, help="Heat conductivity")
-    parser.add_argument("-beta", default=0.1, type=float, help="Viscosity ratio")
+    parser.add_argument("-beta", default=0.001, type=float, help="Viscosity ratio")
     parser.add_argument("-eps", default=1e-3, type=float, help="Perturbation amplide")
     parser.add_argument("-tpert", default=0.1, type=float, help="Perturbation duration")
     parser.add_argument("-dt", default=0.01, type=float, help="Timestep")
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     a, L = df.lhs(F), df.rhs(F)
         
     data = []
-        
+    
     t = 0.0
     it = 0
         

@@ -25,10 +25,9 @@ def read_table(file_path):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
-    parser.add_argument('Pe', type=float, help='Value for Peclet number')
-    parser.add_argument('Gamma', type=float, help='Value for heat transfer ratio')
-    parser.add_argument('beta', type=float, help='Value for viscosity ratio')
-    parser.add_argument('--multi', type=bool, help='Flag for doing multiple plots')
+    parser.add_argument('-Pe', default=100.0, type=float, help='Value for Peclet number')
+    parser.add_argument('-Gamma', default=1.0, type=float, help='Value for heat transfer ratio')
+    parser.add_argument('-beta', default=0.001, type=float, help='Value for viscosity ratio')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -62,7 +61,7 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots(1, 1)
     
-    folder_name = f"results/output_" + "_".join([Pe_str, beta_str, beta_str]) + "/"
+    folder_name = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
     
     path_gamma_full = os.path.join(folder_name, file_gamma_full)
     path_gamma_linear = os.path.join(folder_name, file_gamma_linear)
@@ -87,5 +86,5 @@ if __name__ == "__main__":
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.legend(fontsize="large")
     #fig.savefig('results/gamma_compare.png', dpi=300)
-    fig.savefig("results/output_mix/gamma_linear_" + "_".join([Pe_str, beta_str]) ".png", dpi=300)
+    fig.savefig("results/output_mix/gamma_linear_" + "_".join([Pe_str, Gamma_str, beta_str]) + ".png", dpi=300)
     plt.show()

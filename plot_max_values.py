@@ -15,7 +15,7 @@ def parse_arguments():
     return parser.parse_args()
 
 # Load and filter the data
-def load_data(file_path='results/output_mix/k_max_pt.txt'):
+def load_data(file_path='results/outppt_mix/k_max.txt'):
     data = np.loadtxt(file_path, skiprows=1)
     Pe = data[:, 0]
     Gamma = data[:, 1]
@@ -145,7 +145,7 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
     plt.legend()
 
     # Save the plot in the results/output_mix directory
-    plt.savefig(f'results/output_mix/{y_label}_vs_{x_variable}_different_{vary_variable}_fixed_{fixed_variable}_{fixed_value}_pt.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'results/outppt_mix/{y_label}_vs_{x_variable}_different_{vary_variable}_fixed_{fixed_variable}_{fixed_value}_pt.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 

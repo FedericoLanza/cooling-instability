@@ -12,16 +12,12 @@ nx = 1000
 Lx = 50
 tmax = 10
 
-#Pe_ = [10**a for a in np.arange(0., 4., 1)]
-beta_ = [10**a for a in np.arange(-5, 0., 0.5) if (a != -3)]
+Pe_ = [10**a for a in np.arange(2., 5., 1)]
+beta_ = [10**a for a in np.arange(-1.75, -1., 0.5)]
 #Gamma_ = [2**a for a in np.arange(-1., 3., 1)]
 
-#Pe_ = [10]
+#Pe_ = [10000]
 #beta_ = [0.316227766]
-#Gamma_ = [0.5, 2, 4]
-
-Pe_ = [100]
-beta_ = [0.001]
 Gamma_ = [1]
 
 #print("Pe_ = ", Pe_)
@@ -76,7 +72,9 @@ for Pe in Pe_:
                 if os.path.isfile(file_path):
                     k_max = find_value_in_first_column_for_max_in_second(file_path)
                     print("k_max = ", k_max)
-                    for k in np.arange(max(k_max - 0.1,0.01) , k_max + 0.11, 0.01):
+                    for k in np.arange(max(k_max - 0.1, 0.01) , k_max + 0.11, 0.01):
+                    #for k in np.arange(max(k_max - 0.01, 0.01) , k_max + 0.011, 0.001):
+                    #for k in np.arange(0.001 , 0.01, 0.001):
                         # Construct the command to be executed
                         command_linear_model = f"python3 linear_model_Tp.py -Pe {Pe} -k {k} -Gamma {Gamma} -beta {beta} -eps {eps} -tpert {tpert} -dt {dt} -nx {nx} -Lx {Lx} -tmax {tmax}"
                 

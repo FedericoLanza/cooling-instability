@@ -24,7 +24,7 @@ def read_table_all_values(file_path):
     return x, y
 
 
-def read_table_const_spacing(file_path, spacing=0.01, tolerance=1e-6):
+def read_table_const_spacing(file_path, spacing=0.001, tolerance=1e-6):
     x = []
     y = []
     
@@ -70,6 +70,8 @@ def parse_args():
     parser.add_argument('-Pe', type=float, help='Value for Peclet number')
     parser.add_argument('-Gamma', type=float, help='Value for heat transfer ratio')
     parser.add_argument('-beta', type=float, help='Value for viscosity ratio')
+    parser.add_argument('--tp', action='store_true', help='Flag for analyzing the data coming from linear_model_tp.py instead of linear_model_tu.py')
+    
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -80,6 +82,8 @@ if __name__ == "__main__":
     Pe = args.Pe
     Gamma = args.Gamma
     beta = args.beta
+    
+    tp = args.tp
     
     ueps = 0.001
     Lx = 50
@@ -131,7 +135,11 @@ if __name__ == "__main__":
     else:
         Gamma_ = [Gamma]
     
-    output_folder = "results/output_mix/"
+    output_folder = "results/"
+    if tp == False:
+        output_folder += "output_mix/"
+    else:
+        output_folder += "outppt_mix/"
     #with open(output_folder + "k_max.txt", 'a') as output_file:
     #    output_file.write(f"Pe\t beta\t Gamma\t k_max\n")
     
@@ -160,8 +168,13 @@ if __name__ == "__main__":
                 if whos_none == 2:
                     Gamma_str = f"Gamma_{Gamma:.10g}"
                     label = Gamma_str
-                    
-                input_folder = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+                
+                input_folder = "results/"
+                if tp == False:
+                    input_folder += "output_"
+                else:
+                    input_folder += "outppt_"
+                input_folder += "_".join([Pe_str, Gamma_str, beta_str]) + "/"
                 
                 path_gamma_full = os.path.join(input_folder, file_gamma_full)
                 path_gamma_linear = os.path.join(input_folder, file_gamma_linear)

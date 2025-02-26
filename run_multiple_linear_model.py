@@ -1,28 +1,6 @@
+import argparse
 import os
 import numpy as np
-
-#Pe = 100
-#k = 2
-#Gamma = 1
-#beta = 0.001
-eps = 1e-3
-tpert = 0.1
-dt = 0.01
-nx = 1000
-Lx = 50
-tmax = 10
-
-Pe_ = [10**a for a in np.arange(2., 5., 1)]
-beta_ = [10**a for a in np.arange(-1.75, -1., 0.5)]
-#Gamma_ = [2**a for a in np.arange(-1., 3., 1)]
-
-#Pe_ = [10000]
-#beta_ = [0.316227766]
-Gamma_ = [1]
-
-#print("Pe_ = ", Pe_)
-#print("beta_ = ", beta_)
-#exit(0)
 
 def find_value_in_first_column_for_max_in_second(filename):
     with open(filename, 'r') as file:
@@ -44,39 +22,74 @@ def find_value_in_first_column_for_max_in_second(filename):
                 
     return corresponding_first_column_value
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Process some parameters.')
+    parser.add_argument('--tp', action='store_true', help='Flag for analyzing the data coming from linear_model_tp.py instead of linear_model_tu.py')
+    return parser.parse_args()
     
-for Pe in Pe_:
-    for Gamma in Gamma_:
-        for beta in beta_:
-        
-            Pe_str = f"Pe_{Pe:.10g}"
-            Gamma_str = f"Gamma_{Gamma:.10g}"
-            beta_str = f"beta_{beta:.10g}"
-            print(Pe_str, " ", Gamma_str, " ", beta_str)
+if __name__ == "__main__":
+
+    args = parse_args() # object containing the values of the parsed argument
+    
+    tp = args.tp
+    
+    eps = 1e-3
+    tpert = 0.1
+    dt = 0.01
+    nx = 6000
+    Lx = 300
+    tmax = 10
+
+    #Pe_ = [10**a for a in np.arange(6, 8.5, 0.5)]
+    beta_ = [10**a for a in np.arange(-2., -0.99, 0.25)]
+    #Gamma_ = [2**a for a in np.arange(-1., 3., 1) if a != 0]
+
+    Pe_ = [1e5]
+    #beta_ = [1e-3]
+    Gamma_ = [1]
+    
+    outpvart = []
+    Tvar = []
+    if tp == False:
+        outpvart = "output_"
+        Tvar = "Tu"
+    else:
+        outpvart = "outppt_"
+        Tvar = "Tp"
+    
+    for Pe in Pe_:
+        for Gamma in Gamma_:
+            for beta in beta_:
             
-            folder_name = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
-            if os.path.exists(folder_name) == False:
-                os.mkdir(folder_name) # create folder where to save data (if it does not exist yet)
-                for k in np.arange(0., 10.25, 0.25):
+                Pe_str = f"Pe_{Pe:.10g}"
+                Gamma_str = f"Gamma_{Gamma:.10g}"
+                beta_str = f"beta_{beta:.10g}"
+                print(Pe_str, " ", Gamma_str, " ", beta_str)
                 
-                    # Construct the command to be executed
-                    command_linear_model = f"python3 linear_model_Tp.py -Pe {Pe} -k {k} -Gamma {Gamma} -beta {beta} -eps {eps} -tpert {tpert} -dt {dt} -nx {nx} -Lx {Lx} -tmax {tmax}"
-                
-                    # Print the command to be executed
-                    print(f"Executing: {command_linear_model}")
-                
-                    # Execute the command
-                    os.system(command_linear_model)
-            else:
+                folder_name = "results/" + outpvart + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
                 file_path = folder_name + "gamma_linear.txt"
-                if os.path.isfile(file_path):
+                if os.path.isfile(file_path) == False:
+                    if os.path.exists(folder_name) == False:
+                        os.mkdir(folder_name) # create folder where to save data (if it does not exist yet)
+                    k_ = np.arange(0., 1.025, 0.025)
+                    for k in k_:
+                    
+                        # Construct the command to be executed
+                        command_linear_model = "python3 linear_model_" + Tvar + f".py -Pe {Pe} -k {k} -Gamma {Gamma} -beta {beta} -eps {eps} -tpert {tpert} -dt {dt} -nx {nx} -Lx {Lx} -tmax {tmax}"
+                    
+                        # Print the command to be executed
+                        print(f"Executing: {command_linear_model}")
+                    
+                        # Execute the command
+                        os.system(command_linear_model)
+                else:
                     k_max = find_value_in_first_column_for_max_in_second(file_path)
                     print("k_max = ", k_max)
-                    for k in np.arange(max(k_max - 0.1, 0.01) , k_max + 0.11, 0.01):
-                    #for k in np.arange(max(k_max - 0.01, 0.01) , k_max + 0.011, 0.001):
-                    #for k in np.arange(0.001 , 0.01, 0.001):
+                    k_ = np.arange(max(k_max - 0.01, 0.001) , k_max + 0.0011, 0.001)
+                        # for k in np.arange(0.120 , 0.140, 0.001):
+                    for k in k_:
                         # Construct the command to be executed
-                        command_linear_model = f"python3 linear_model_Tp.py -Pe {Pe} -k {k} -Gamma {Gamma} -beta {beta} -eps {eps} -tpert {tpert} -dt {dt} -nx {nx} -Lx {Lx} -tmax {tmax}"
+                        command_linear_model = f"python3 linear_model_" + Tvar + f".py -Pe {Pe} -k {k} -Gamma {Gamma} -beta {beta} -eps {eps} -tpert {tpert} -dt {dt} -nx {nx} -Lx {Lx} -tmax {tmax}"
                 
                         # Print the command to be executed
                         print(f"Executing: {command_linear_model}")
@@ -88,4 +101,4 @@ for Pe in Pe_:
                     command_sort = f"python3 sort_table.py " + folder_name + "gamma_linear.txt"
                     print(f"Executing: {command_sort}")
                     os.system(command_sort)
-                    
+                        

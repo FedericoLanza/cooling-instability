@@ -4,6 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 
+# Enable LaTeX-style rendering
+#plt.rcParams.update({
+#    "text.usetex": True,
+#    "font.family": "serif",
+#    "font.size": 12,
+#})
+
 # Function to parse command-line arguments
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Plot k_max or gamma_max vs chosen variable for different values of another variable, while keeping the third fixed.')
@@ -12,10 +19,20 @@ def parse_arguments():
     parser.add_argument('--vary_variable', type=str, required=True, choices=['Pe', 'beta', 'Gamma'], help='The variable for which to plot different values.')
     parser.add_argument('--fixed_variable', type=str, required=True, choices=['Pe', 'beta', 'Gamma'], help='The variable to keep fixed.')
     parser.add_argument('--fixed_value', type=float, required=True, help='The value of the fixed variable.')
+    parser.add_argument('--tp', action='store_true', help='Flag for analyzing the data coming from linear_model_tp.py instead of linear_model_tu.py')
     return parser.parse_args()
 
+# Create name of the input/output folder
+def create_folder_name(tp):
+    folder_name = []
+    if (tp == False): # tu
+        folder_name = 'results/output_mix/'
+    else: # tp
+        folder_name = 'results/outppt_mix/'
+    return folder_name
+    
 # Load and filter the data
-def load_data(file_path='results/outppt_mix/k_max.txt'):
+def load_data(file_path):
     data = np.loadtxt(file_path, skiprows=1)
     Pe = data[:, 0]
     Gamma = data[:, 1]
@@ -27,10 +44,12 @@ def load_data(file_path='results/outppt_mix/k_max.txt'):
     return Pe, Gamma, beta, k_max, k_max_sigma, gamma_max, gamma_max_sigma
 
 # Plotting function
-def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y_variable):
+def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y_variable, folder_name):
+    
     # Load data
-    Pe, Gamma, beta, k_max, k_max_sigma, gamma_max, gamma_max_sigma = load_data()
-
+    file_path = folder_name + f'/values_vs_{x_variable}_different_{vary_variable}_zoom.txt'
+    Pe, Gamma, beta, k_max, k_max_sigma, gamma_max, gamma_max_sigma = load_data(file_path)
+    
     # Create mappings between variable names and data columns
     variables = {
         'Pe': Pe,
@@ -42,11 +61,11 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
     if y_variable == 'k_max':
         y_data = k_max
         y_err = k_max_sigma
-        y_label = 'k_max'
+        y_label = r'$k_{\max}$'
     else:  # y_variable == 'gamma_max'
         y_data = gamma_max
         y_err = gamma_max_sigma
-        y_label = 'gamma_max'
+        y_label = r'$\gamma_{\max}$'
 
     # Filter data for the fixed variable
     mask_fixed = variables[fixed_variable] == fixed_value
@@ -73,16 +92,26 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
         y_plot_data = y_filtered[mask_vary]
         y_err_plot_data = y_err_filtered[mask_vary]
         
-        if y_variable == 'k_max' and vary_variable == 'beta': # rescale data
-            y_plot_data = [-yy/np.log(val) for yy in y_plot_data]
-            y_err_plot_data = y_err_filtered[mask_vary]
+        # Rescale data
+        #if y_variable == 'k_max' and vary_variable == 'beta':
+        #    y_plot_data = [-yy/np.log(val) for yy in y_plot_data]
+        #    y_err_plot_data = y_err_filtered[mask_vary]
 
+        # Define labels
+        vary_variable_label = []
+        if vary_variable == 'Pe':
+            vary_variable_label = rf'{vary_variable} = {val}'
+        else:
+            vary_variable_label = rf'$\{vary_variable}$ = {val}'
+            
         # Scatter plot with error bars
-        plt.errorbar(x_data, y_plot_data, yerr=y_err_plot_data, label=f'{vary_variable} = {val}', capsize=3, fmt='o')
+        plt.errorbar(x_data, y_plot_data, yerr=y_err_plot_data, label=vary_variable_label, capsize=3, fmt='o')
 
+    plt.xscale('log')
+    x_label = []
     if x_variable == 'Pe':
-        plt.xscale('log')
-        
+        x_label = 'Pe'
+    
         #  Plot the xi function if y_variable is k_max
         if y_variable == 'k_max':
             Pe_min = np.min(Pe_filtered)
@@ -94,8 +123,8 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
             if fixed_variable == 'Gamma':
                 Gamma_value = fixed_value
                 xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_value * k_eff_curve)) / (2 * k_eff_curve)
-                xi_curve_resc = [xi*np.log()]
-                plt.plot(Pe_curve, xi_curve, color='black', linestyle='--', linewidth=2, label=r'$\xi = (-1 \pm \sqrt{1 + 4 \Gamma \kappa_{eff}})/(2\kappa_{eff})$') # Plot xi curve
+                #xi_curve_resc = [xi_curve*np.log()]
+                #plt.plot(Pe_curve, xi_curve, color='black', linestyle='--', linewidth=2, label=r'$\xi = (-1 \pm \sqrt{1 + 4 \Gamma \kappa_{eff}})/(2\kappa_{eff})$') # Plot xi curve
 
             elif vary_variable == 'Gamma':
                 # Plot xi for each Gamma value in vary_values
@@ -104,7 +133,8 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
                     plt.plot(Pe_curve, xi_curve, linestyle='--', linewidth=2, label=r'$\xi$ = $\xi$(Pe, $\Gamma$ = ' + f'{Gamma_val}' + ')' ) # Plot xi curves
         
     if x_variable == 'Gamma':
-        plt.xscale('log')
+        x_label = r'$\Gamma$'
+        
         plt.yscale('log')
         
         if y_variable == 'k_max':
@@ -115,7 +145,7 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
             if fixed_variable == 'Pe':
                 Pe_value = fixed_value
                 kappa_eff = 1. / Pe_value + 2 * Pe_value / 105
-                xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_curve * kappa_eff)) / (2 * kappa_eff)
+                xi_curve = 2*(-1 + np.sqrt(1 + 4 * Gamma_curve * kappa_eff)) / (2 * kappa_eff)
                 plt.plot(Gamma_curve, xi_curve, color='black', label=r'$\xi$ = $\xi$(Pe = 100, $\Gamma$)', linestyle='--', linewidth=2) # Plot xi curve
                 
             elif vary_variable == 'Pe':
@@ -124,16 +154,21 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
                     kappa_eff = 1. / Pe_val + 2 * Pe_val / 105
                     xi_curve = (-1 + np.sqrt(1 + 4 * Gamma_curve * kappa_eff)) / (2 * kappa_eff)
                     plt.plot(Gamma_curve, xi_curve, linestyle='--', linewidth=2, label=r'$\xi$ = $\xi$(Pe = ' + f'{Pe_val}' ', $\Gamma$)' ) # Plot xi curves
-        
     if x_variable == 'beta':
-        plt.xscale('log')
+        x_label = r'$\beta$'
+        
+    fixed_variable_label = []
+    if fixed_variable == 'Pe':
+        fixed_variable_label = rf'{fixed_variable} = {fixed_value}'
+    else:
+        fixed_variable_label = rf'$\{fixed_variable}$ = {fixed_value}'
     
     # Add labels and title
-    plt.xlabel(x_variable)
+    plt.xlabel(x_label)
     plt.ylabel(y_label)
     #plt.ylabel(y_label + r'/($\log$ $\beta$)')
-    plt.title(f'{y_label} vs {x_variable} for {fixed_variable} = {fixed_value}')
-
+    #plt.title(rf'{y_label} vs ' + x_label + ' for ' + fixed_variable_label + rf' = {fixed_value}')
+    plt.title(y_label + ' vs ' + x_label + ' for ' + fixed_variable_label)
     # Remove grid
     plt.grid(False)
 
@@ -145,17 +180,19 @@ def plot_variable_vs_x(x_variable, vary_variable, fixed_variable, fixed_value, y
     plt.legend()
 
     # Save the plot in the results/output_mix directory
-    plt.savefig(f'results/outppt_mix/{y_label}_vs_{x_variable}_different_{vary_variable}_fixed_{fixed_variable}_{fixed_value}_pt.png', dpi=300, bbox_inches='tight')
+    plt.savefig(folder_name + f'{y_variable}_vs_{x_variable}_different_{vary_variable}_fixed_{fixed_variable}_{fixed_value}_zoom.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 
 # Main function to execute the script
 if __name__ == '__main__':
     args = parse_arguments()
-
+    
+    folder_name = create_folder_name(args.tp)
+    
     # Validate the combination of inputs
     if args.x_variable == args.vary_variable or args.x_variable == args.fixed_variable or args.vary_variable == args.fixed_variable:
         raise ValueError("The x_variable, vary_variable, and fixed_variable must all be different.")
 
     # Call the plotting function with parsed arguments
-    plot_variable_vs_x(args.x_variable, args.vary_variable, args.fixed_variable, args.fixed_value, args.y_variable)
+    plot_variable_vs_x(args.x_variable, args.vary_variable, args.fixed_variable, args.fixed_value, args.y_variable, folder_name)

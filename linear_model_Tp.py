@@ -22,15 +22,15 @@ class Right(df.SubDomain):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve the linearised model")
-    parser.add_argument("-Pe", default=10000.0, type=float, help="Peclet number")
-    parser.add_argument("-k", default=0.4, type=float, help="Wavelength")
+    parser.add_argument("-Pe", default=1e5, type=float, help="Peclet number")
+    parser.add_argument("-k", default=1, type=float, help="Wavelength")
     parser.add_argument("-Gamma", default=1.0, type=float, help="Heat conductivity")
-    parser.add_argument("-beta", default=1e-5, type=float, help="Viscosity ratio")
+    parser.add_argument("-beta", default=1e-1, type=float, help="Viscosity ratio")
     parser.add_argument("-eps", default=1e-3, type=float, help="Perturbation amplide")
     parser.add_argument("-tpert", default=0.1, type=float, help="Perturbation duration")
     parser.add_argument("-dt", default=0.01, type=float, help="Timestep")
-    parser.add_argument("-nx", default=1000, type=int, help="Number of mesh points")
-    parser.add_argument("-Lx", default=50.0, type=float, help="System size")
+    parser.add_argument("-nx", default=6000, type=int, help="Number of mesh points")
+    parser.add_argument("-Lx", default=300.0, type=float, help="System size")
     parser.add_argument("-tmax", default=10.0, type=float, help="Total time")
     return parser.parse_args()
 
@@ -182,13 +182,13 @@ if __name__ == "__main__":
             axp[0].plot(x.vector()[:], p__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot p vs x
             axp[1].plot(x.vector()[:], p__.vector()[:]/pmax, label=f"$t={t:1.2f}$", color=color) # plot p/pmax vs x
             # ax[1].plot(x.vector()[:], p__.vector()[:]/pmax)
-            axp[0].set_xlim(0, 20)
-            axp[1].set_xlim(0, 20)
+            #axp[0].set_xlim(0, 20)
+            #axp[1].set_xlim(0, 20)
             
             axT[0].plot(x.vector()[:], T__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot T vs x
             axT[1].plot(x.vector()[:], T__.vector()[:]/Tmax, label=f"$t={t:1.2f}$", color=color) # plot T/Tmax vs x
-            axT[0].set_xlim(0, 20)
-            axT[1].set_xlim(0, 20)
+            #axT[0].set_xlim(0, 20)
+            #axT[1].set_xlim(0, 20)
         
 
     data = np.array(data)
@@ -210,14 +210,14 @@ if __name__ == "__main__":
     Gamma_str = f"Gamma_{Gamma:.10g}"
     beta_str = f"beta_{beta:.10g}"
     output_folder = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
-    #os.makedirs(output_folder, exist_ok=True)
-    with open(output_folder + "gamma_linear.txt", "a") as file:
-        file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
+    os.makedirs(output_folder, exist_ok=True)
+    #with open(output_folder + "gamma_linear.txt", "a") as file:
+    #    file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
         
     # xdmff_T.close()
     # xdmff_p.close()
     
-    exit(0)
+    #exit(0)
     
     # Plot results
     

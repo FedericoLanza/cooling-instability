@@ -4,6 +4,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+plt.rcParams.update({
+    "text.usetex": True,  # Use LaTeX for proper formatting
+    "font.family": "serif",  # Match JFM style
+    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+    "font.size": 18,  # Default text size (JFM uses ~8pt for labels)
+    "axes.titlesize": 20,  # Title size (slightly larger)
+    "axes.labelsize": 18,  # Axis labels (JFM ~8pt)
+    "xtick.labelsize": 18,  # Tick labels
+    "ytick.labelsize": 18,
+    "legend.fontsize": 12,  # Legend size
+    "figure.figsize": (6, 4.5),  # Keep plots compact (JFM prefers small plots)
+    "lines.linewidth": 1.5,  # Thin lines
+    "lines.markersize": 8,  # Small but visible markers
+    
+})
+
 # Function to read the last value from the second column of a file
 def read_table(file_path):
     x = []
@@ -28,6 +44,8 @@ def parse_args():
     parser.add_argument('-Pe', default=100.0, type=float, help='Value for Peclet number')
     parser.add_argument('-Gamma', default=1.0, type=float, help='Value for heat transfer ratio')
     parser.add_argument('-beta', default=0.001, type=float, help='Value for viscosity ratio')
+    parser.add_argument('--tp', action='store_true', help='Flag for analyzing the data coming from linear_model_tp.py instead of linear_model_tu.py')
+    
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -38,6 +56,9 @@ if __name__ == "__main__":
     Pe = args.Pe
     Gamma = args.Gamma
     beta = args.beta
+    
+    tp = args.tp
+        
     ueps = 0.001
     Lx = 50
     rnd = False
@@ -53,7 +74,7 @@ if __name__ == "__main__":
     
     # Input paths
     file_gamma_full = f"gamma_full.txt"
-    file_gamma_linear = f"gamma_linear.txt"
+    file_gamma_linear = f"gamma_linear_plot.txt"
     
     Pe_str = f"Pe_{Pe:.10g}"
     Gamma_str = f"Gamma_{Gamma:.10g}"
@@ -61,10 +82,18 @@ if __name__ == "__main__":
 
     fig, ax = plt.subplots(1, 1)
     
-    folder_name = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+    path_folder = "results/"
+    if tp == False:
+        path_folder += "output_"
+    else:
+        path_folder += "outppt_"
+    input_folder = path_folder + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+    output_folder = path_folder + "mix/gamma_linear_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
     
-    path_gamma_full = os.path.join(folder_name, file_gamma_full)
-    path_gamma_linear = os.path.join(folder_name, file_gamma_linear)
+    path_gamma_full = os.path.join(input_folder, file_gamma_full)
+    path_gamma_linear = os.path.join(input_folder, file_gamma_linear)
+    
+    k_max_lim = 10.
     
     if os.path.isfile(path_gamma_full):
         Ly_full_, gamma_full_ = read_table(path_gamma_full)
@@ -72,19 +101,41 @@ if __name__ == "__main__":
         
     if os.path.isfile(path_gamma_linear):
         k_linear_, gamma_linear_ = read_table(path_gamma_linear)
-        #ax.scatter([k for k in k_linear_], gamma_linear_, label="linear") # Plot gamma vs k from linear stability analysis
-        ax.scatter([k for k in k_linear_], gamma_linear_, label=Gamma_str) # Plot gamma vs k from linear stability analysis
+        max_k = max(k_linear_)
+        
+        ax.plot([k for k in k_linear_], gamma_linear_, marker="o", label="LSA", alpha=0.6, markersize=5) # Plot gamma vs k from linear stability analysis
+        
+        # Get current axis limits
+        k_min, k_max_lim = ax.get_xlim()
+        gamma_min, gamma_max_lim = ax.get_ylim()
+        
+        gamma_max = np.max(gamma_linear_)
+        k_max = k_linear_[np.argmax(gamma_linear_)]
+        
+        # Add dashed lines
+        ax.plot([k_max, k_max], [ax.get_ylim()[0], gamma_max], linestyle="dotted", linewidth=1., color="black", alpha=0.7)  # Vertical line
+        ax.plot([ax.get_xlim()[0], k_max], [gamma_max, gamma_max], linestyle="dotted", linewidth=1., color="black", alpha=0.7)  # Horizontal line
+        
+        # Add labels
+        ax.text(k_max, ax.get_ylim()[0]-0.02, r"$k_{\max}$", ha="center", va="center")  # x-axis label
+        ax.text(ax.get_xlim()[0], gamma_max, r"$\gamma_{\max}$", ha="center", va="center")   # y-axis label
+        
+        # Highlight the max point
+        ax.scatter([k_max], [gamma_max], color="black", s=10, zorder=3, label="Maximum")
+        
+    k_step = 0.025
+    k_ = np.arange(k_min, max_k + k_step, k_step)
+    ax.plot([ax.get_xlim()[0], ax.get_xlim()[1]], [0., 0.], linestyle="--", linewidth=1.3, color="black", alpha=1.)  # Horizontal line
     
-    k_ = np.arange(0., 16., 0.1)
-    ax.plot(k_, [0 for k in k_], color='black', linestyle='dashed')
     #ax.axvline(xi, color='black', linestyle='dotted', label="xi")
     #ax.plot(k_, [- Gamma + 0.5 * k * (psi + (kappa_parallel - kappa)*k - math.sqrt((kappa_eff*k)**2 + 2*kappa_eff*psi*k)) for k in k_], label="step base state", color='red') # Plot gamma vs k from linear stability analysis of step function
     #ax.plot(k_, [- Gamma + 0.5 * ((psi - 1)*k + (kappa_parallel - kappa)*k**2 - math.sqrt((kappa_eff*k**2 - 2*(kappa_eff**2)*k**3 + (kappa_eff**3)*k**4 + (2*k - 4*kappa_eff*k**2 + 2*kappa_eff*k**3)*psi ))/math.sqrt(kappa_eff)) for k in k_], label="exp base state", color='green') # Plot gamma vs k from linear stability analysis of step functio
+    ax.set_xlim(k_min, k_max_lim)
+    ax.set_ylim(gamma_min, gamma_max_lim)
     
     ax.set_xlabel(r"$k$")
     ax.set_ylabel(r"$\gamma$")
-    ax.tick_params(axis='both', which='major', labelsize=14)
-    ax.legend(fontsize="large")
-    #fig.savefig('results/gamma_compare.png', dpi=300)
-    fig.savefig("results/output_mix/gamma_linear_" + "_".join([Pe_str, Gamma_str, beta_str]) + ".png", dpi=300)
+    #ax.legend(fontsize="large")
+    fig.tight_layout()
+    fig.savefig("results/imgs/gamma_vs_k.pdf", dpi=300)
     plt.show()

@@ -1,6 +1,7 @@
 import dolfin as df
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 import argparse
 from mpi4py import MPI
 mpi_size = MPI.COMM_WORLD.Get_size()
@@ -10,6 +11,33 @@ if mpi_size > 1:
         print("This script only works in serial. You are better off  \n"
               "simply running the parameter scan in parallel instead.")
     exit()
+
+
+plt.rcParams.update({
+    "text.usetex": True,  # Use LaTeX for proper formatting
+    "font.family": "serif",  # Match JFM style
+    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+    "font.size": 25,  # Default text size (JFM uses ~8pt for labels)
+    "axes.titlesize": 20,  # Title size (slightly larger)
+    "axes.labelsize": 24,  # Axis labels (JFM ~8pt)
+    "xtick.labelsize": 20,  # Tick labels
+    "ytick.labelsize": 20,
+    "legend.fontsize": 12,  # Legend size
+    "figure.figsize": (5.5, 3),  # Keep plots compact (JFM prefers small plots)
+    "lines.linewidth": 1.5,  # Thin lines
+    "lines.markersize": 8,  # Small but visible markers
+    "figure.subplot.wspace": 0.35,  # Horizontal spacing
+    "figure.subplot.bottom": 0.15,  # Space for x-labels
+    "axes.labelpad": 8, #default is 5
+})
+
+# Enable LaTeX-style rendering
+#plt.rcParams.update({
+#    "text.usetex": True,
+#    "font.family": "serif",
+#    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+#    "font.size": 12,
+#})
 
 class Left(df.SubDomain):
     def inside(self, x, on_boundary):
@@ -22,7 +50,7 @@ class Right(df.SubDomain):
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve the linearised model")
     parser.add_argument("-Pe", default=100.0, type=float, help="Peclet number")
-    parser.add_argument("-k", default=0.0, type=float, help="Wavelength")
+    parser.add_argument("-k", default=1.0, type=float, help="Wavelength")
     parser.add_argument("-Gamma", default=1.0, type=float, help="Heat conductivity")
     parser.add_argument("-beta", default=0.001, type=float, help="Viscosity ratio")
     parser.add_argument("-eps", default=1e-3, type=float, help="Perturbation amplide")
@@ -35,7 +63,9 @@ def parse_args():
 
 if __name__ == "__main__":
 
-    cmap = plt.cm.viridis
+    cmap_space = sns.color_palette("mako", as_cmap=True)
+    cmap_time = sns.color_palette("rocket", as_cmap=True)
+    #cmap_space = plt.cm.cividis
     
     args = parse_args()
 
@@ -87,10 +117,23 @@ if __name__ == "__main__":
     # define x-variable as a function
     x = df.Function(S)
     x.interpolate(df.Expression("x[0]", degree=1))
-
+    x_values = x.vector()[:]
+    
+    list_i = []
+    x_sample_ = [n for n in np.arange(1., 11., 1.)]
+    len_x_sample_ = len(x_sample_)
+    for x_sample in x_sample_:
+        i = np.argmin(np.abs(x_values - x_sample))  # Index of the closest value
+        list_i.append(i)
+    
+    #print("list_i = ", list_i)
+    #for i in list_i:
+    #    print("x_values[", i ,"] = ", x_values[i])
+    #exit(0)
+    
     # define base state function
     T0 = df.Function(S)
-    T0.vector()[:] = np.exp(-xi*x.vector()[:])
+    T0.vector()[:] = np.exp(-xi*x_values)
 
     betamT0 = df.Function(S)
     betamT0.vector()[:] = beta**-T0.vector()[:]
@@ -133,19 +176,19 @@ if __name__ == "__main__":
 
     # split equation in left and right member
     a, L = df.lhs(F), df.rhs(F)
-        
+    
+    datamax = []
     data = []
     
     t = 0.0
     it = 0
-        
-    fig, axu = plt.subplots(1, 2, figsize=(15, 5))
-    fig, axT = plt.subplots(1, 2, figsize=(15, 5))
+    
+    fig, axa = plt.subplots(1, 2, figsize=(15., 5.))
+    fig, axb = plt.subplots(1, 2, figsize=(15., 5.))
         
     while t < tmax:
         print('t = ', t)
         #print('before solving: w_.vector() = ', w_.vector()[:])
-        it += 1
 
         if t > tpert:
             onoff.assign(0.)
@@ -155,36 +198,45 @@ if __name__ == "__main__":
         t += dt
 
         T__, u__ = w_.split(deepcopy=True)
-
-        Tmax = np.max(T__.vector()[:])
-        umax = np.max(u__.vector()[:])
-        data.append([t, Tmax, umax]) # collect the (t, Tmax, pmax) values
-
-        if (it % plot_intv == 0):
-            color = cmap(t / tmax)
-            axu[0].plot(x.vector()[:], u__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot ux vs x
-            axu[1].plot(x.vector()[:], u__.vector()[:]/umax, label=f"$t={t:1.2f}$", color=color) # plot ux/ux_max vs x
-            axu[0].set_xlim(0, 20)
-            axu[1].set_xlim(0, 20)
-            
-            axT[0].plot(x.vector()[:], T__.vector()[:], label=f"$t={t:1.2f}$", color=color) # plot T vs x
-            axT[1].plot(x.vector()[:], T__.vector()[:]/Tmax, label=f"$t={t:1.2f}$", color=color) # plot T/Tmax vs x
-            axT[0].set_xlim(0, 20)
-            axT[1].set_xlim(0, 20)
         
+        T_values = T__.vector()[:]
+        u_values = u__.vector()[:]
+
+        Tmax = np.max(T_values)
+        umax = np.max(u_values)
+        datamax.append([t, Tmax, umax]) # collect the (t, Tmax, pmax) values
+        
+        data.append([t])
+        for i in list_i:
+            data[it].extend([T_values[i], u_values[i]])
+            
+        it += 1
+        
+        if (it % plot_intv == 0):
+            color = cmap_time(1. - 0.75*t/tmax)
+            axa[0].plot(x_values, T_values, label=f"$t={t:1.2f}$", color=color) # plot T vs x
+            axa[1].plot(x_values, u_values, label=f"$t={t:1.2f}$", color=color) # plot ux vs x
+            
+            axb[0].plot(x_values, T_values/Tmax, label=f"$t={t:1.2f}$", color=color) # plot T/Tmax vs x
+            axb[1].plot(x_values, u_values/umax, label=f"$t={t:1.2f}$", color=color) # plot ux/ux_max vs x
+            axb[0].set_xlim(0, 20)
+            axb[1].set_xlim(0, 20)
+            
+    datamax = np.array(datamax)
     data = np.array(data)
-    n_steps = len(data[:, 0])
+    n_steps = len(datamax[:, 0])
     istart = int(tmax/dt)//2
     #print("istart = ", istart)
 
-    # find the growth rate gamma
-    popt, pcov = np.polyfit(data[istart:, 0], np.log(data[istart:, 1]), 1, cov=True)
+    # Find the growth rate gamma
+    
+    popt, pcov = np.polyfit(datamax[istart:, 0], np.log(datamax[istart:, 1]), 1, cov=True)
     gamma = popt[0]
     gamma_variance = pcov[0, 0]
     gamma_standard_error = np.sqrt(gamma_variance)
     
-    #print(f"gamma = {gamma}")
-    #print(f"gamma_standard_error = {gamma_standard_error}")
+    print(f"gamma = {gamma}")
+    print(f"gamma_standard_error = {gamma_standard_error}")
     
     # write the gamma value in the related file
     Pe_str = f"Pe_{Pe:.10g}"
@@ -198,43 +250,74 @@ if __name__ == "__main__":
     
     # Plot results
     
-    fig_, ax_ = plt.subplots(1, 1)
-    
-    ax_.plot(data[:, 0], data[:, 1]) # plot Tmax vs time
-    #ax_.plot(data[:, 0], data[:, 2], label=r"$p_{\rm max}$")  # plot pmax vs time
-    ax_.plot(data[istart:, 0], np.exp(gamma*data[istart:, 0]), label=r"fit") # plot fitting line
+    fig_, ax_ = plt.subplots(1, 1, figsize=(7.5, 5.))
+    ax_.plot(datamax[:, 0], datamax[:, 1]) # plot Tmax vs time
+    ax_.plot(datamax[istart//2:9*n_steps//10, 0], 1e-4*np.exp(gamma*datamax[istart//2:9*n_steps//10, 0]), color='black', linestyle='dotted', label=r"fit") # plot fitting line
     ax_.semilogy()
     ax_.set_xlabel(r"$t$")
     ax_.set_ylabel(r"$T_{\rm max}$")
     ax_.legend()
-        
-    G = gamma + k*kappa + Gamma
-    Lambda_k = (-1 + np.sqrt(1 + 4*G*kappa_eff) )/(2*kappa_eff)
-    print('Lambda_k = ',Lambda_k)
+    fig_.subplots_adjust(left=0.15)
     
-    axu[1].plot(x.vector()[:], [100 * np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$\sim e^{-\Lambda*x}$", color='black', linestyle='dashed')
-    axu[1].plot(x.vector()[:], [50 * (np.exp(- Lambda_k * x_) + np.exp(- k * x_)) for x_ in x.vector()[:]], label="$\sim Ae^{-\Lambda*x} + Be^{-k*x}$", color='black', linestyle='dotted')
-    #axu[1].plot(x.vector()[:], [2 * x_ * (np.exp(- Lambda_k * x_)) for x_ in x.vector()[:]], label="$2x*e^{-\Lambda*x}$", color='black', linestyle='dotted')
+    figt, axt = plt.subplots(1, 2, figsize=(15., 5.))
+    i = 0
+    while i < len_x_sample_:
+        color = cmap_space(1. - i / len_x_sample_)
+        x_sample = x_sample_[i]
+        axt[0].plot(data[:, 0], data[:, 2*i + 1], label=f"$x={x_sample:1.1f}$", color=color) # plot T(x=x0) vs time
+        axt[1].plot(data[:, 0], data[:, 2*i + 2], label=f"$x={x_sample:1.1f}$", color=color) # plot ux(x=x0) vs time
+        n_start = 2*istart//3
+        n_end = 9*n_steps//10
+        i += 1
+    axt[0].plot(datamax[n_start:n_end, 0], 5*1e-5*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed') # plot fitting line
+    axt[1].plot(datamax[n_start:n_end, 0], 3*1e-4*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed')
+    [axti.semilogy() for axti in axt]
+    [axti.set_xlabel(r"$t$") for axti in axt]
+    #axt[0].legend(fontsize=12)
+    axt[0].set_ylabel(r"$T_k$")
+    axt[1].set_ylabel(r"$u_k$")
+    ylab_xpos_l = axt[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
+    ylab_xpos_r = axt[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
+    figt.text(ylab_xpos_l + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
+    figt.text(ylab_xpos_r + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
     
-    axT[1].plot(x.vector()[:], [100 * np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$\sim e^{-\Lambda*x}$", color='black', linestyle='dashed')
-    #axT[1].plot(x.vector()[:], [2 * x_ * np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="2x*e^{-\Lambda*x}$", color='black', linestyle='dotted')
-
-    [axui.set_xlabel(r"$x$") for axui in axu]
-    [axTi.set_xlabel(r"$x$") for axTi in axT]
+    [axai.set_xlabel(r"$x$") for axai in axa]
+    axa[0].set_ylabel(r"$T_k(x)$")
+    axa[1].set_ylabel(r"$u_k(x)$")
+    for axi in axa:
+        xmin, xmax = 0, 20
+        padding = 0.05 * (xmax - xmin)  # 5% padding
+        axi.set_xlim(xmin - padding, xmax + padding)
+    axa[0].legend()
     
-    axu[0].set_ylabel(r"$u_k(x)$")
-    axu[1].set_ylabel(r"$u_k(x)/umax$")
-    axT[0].set_ylabel(r"$T_k(x)$")
-    axT[1].set_ylabel(r"$T_k(x)/Tmax$")
+    G = gamma + kk*kappa + Gamma
+    Lambda_k = (-1 + np.sqrt(1 + 4*G*kappa_eff) )/(2*kappa_eff) # decay rate of the solution of the ODE for T0 = 0
+    print("Lambda_k = ", Lambda_k)
     
-    axu[0].set_title("u(x)")
-    axu[1].set_title("u(x)/u_max")
-    axT[0].set_title("T(x)")
-    axT[1].set_title("T(x)/T_max")
+    n_start_x = np.argmin(np.abs(x_values - 22.))
+    n_end_x = np.argmin(np.abs(x_values - 5.)) + 1
+    axb[0].plot(x_values[n_start_x:n_end_x], [100 * np.exp(- Lambda_k * x_) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dashed', label="$\sim e^{-\Lambda*x}$")
+    #axb[1].plot(x_values[n_start_x:n_end_x], [250 * (np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dotted', label="$\sim Ae^{-\Lambda*x} + Be^{-k*x}$")
+    axb[0].set_ylim(3*1e-11, 1e1)
+    axb[1].set_ylim(8*1e-8, 5)
+    ylab_xpos_l_b = axb[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
+    ylab_xpos_r_b = axb[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
+    fig.text(ylab_xpos_l_b + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
+    fig.text(ylab_xpos_r_b + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
+    [axbi.set_xlabel(r"$x$") for axbi in axb]
+    axb[0].set_ylabel(r"$T_k(x)/T_{\max}$")
+    axb[1].set_ylabel(r"$u_k(x)/u_{\max}$")
+    for axi in axb:
+        xmin, xmax = 0, 20
+        padding = 0.05 * (xmax - xmin)  # 5% padding
+        axi.set_xlim(xmin - padding, xmax + padding)
+    #axb[0].legend()
+    axb[0].semilogy()
+    axb[1].semilogy()
     
-    axu[1].semilogy()
-    axT[1].semilogy()
-    axu[0].legend()
-    axT[0].legend()
+    outpute_imgs_folder = "results/imgs"
+    fig.savefig(outpute_imgs_folder + "/T_and_u_vs_x.pdf", dpi=600, bbox_inches="tight")
+    fig_.savefig(outpute_imgs_folder + "/Tmax_vs_t.pdf", dpi=600, bbox_inches="tight")
+    figt.savefig(outpute_imgs_folder + "/T_and_u_vs_t.pdf", dpi=600, bbox_inches="tight")
     
     plt.show()

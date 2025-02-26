@@ -24,7 +24,7 @@ def read_table_all_values(file_path):
     return x, y
 
 
-def read_table_const_spacing(file_path, spacing=0.001, tolerance=1e-6):
+def read_table_const_spacing(file_path, spacing=0.0001, tolerance=1e-6):
     x = []
     y = []
     
@@ -117,7 +117,8 @@ if __name__ == "__main__":
         
     if beta == None:
         whos_none = 1
-        beta_ = [10**a for a in np.arange(-5., -1., 1)]
+        #beta_ = [10**a for a in np.arange(-5., -1., 1)]
+        beta_ = [10**a for a in np.arange(-1.25, -0.49, 0.125)]
         
         Pe_str = f"Pe_{Pe:.10g}"
         Gamma_str = f"Gamma_{Gamma:.10g}"
@@ -147,6 +148,14 @@ if __name__ == "__main__":
     
     
     for Pe in Pe_:
+        if (Pe > 9 and Pe < 101):
+            spacing = 0.01
+        elif (Pe > 1e4 and Pe < 1e5):
+            spacing = 0.0001
+        elif (Pe >= 1e5):
+            spacing = 0.00001
+        else:
+            spacing = 0.001
         for beta in beta_:
             for Gamma in Gamma_:
                 psi = - math.log(beta)
@@ -164,7 +173,7 @@ if __name__ == "__main__":
                     label = Pe_str
                 if whos_none == 1:
                     beta_str = f"beta_{beta:.10g}"
-                    label = beta_str
+                    label = rf"$\beta$ = {beta:.10g}"
                 if whos_none == 2:
                     Gamma_str = f"Gamma_{Gamma:.10g}"
                     label = Gamma_str
@@ -182,10 +191,11 @@ if __name__ == "__main__":
                 #if os.path.isfile(path_gamma_full):
                     #Ly_full_, gamma_full_ = read_table(path_gamma_full)
                     #ax.scatter([2*math.pi/Ly for Ly in Ly_full_], gamma_full_, label="full") # Plot gamma vs k from complete simulations
+                max_k = 0.
                 
                 if os.path.isfile(path_gamma_linear):
                     k_linear_, gamma_linear_ = read_table_all_values(path_gamma_linear)
-                    k_fit_, gamma_fit_ = read_table_const_spacing(path_gamma_linear)
+                    k_fit_, gamma_fit_ = read_table_const_spacing(path_gamma_linear, spacing)
                     
                     #print("k_fit_ = ", k_fit_)
                     #print("gamma_fit_ = ", gamma_fit_)
@@ -209,8 +219,9 @@ if __name__ == "__main__":
                     
                     ax.scatter(k_linear_, gamma_linear_, label=label) # Plot gamma vs k from linear stability analysis
                     ax.plot(k_fit_, [a*k**2 + b*k + c for k in k_fit_], color='black', linestyle='solid')
+                    max_k = max(k_linear_) if max(k_linear_) > max_k else max_k
                     
-                k_ = np.arange(0., 10., 0.1)
+                k_ = np.arange(0., max_k + 0.001, 0.001)
                 ax.plot(k_, [0 for k in k_], color='black', linestyle='dashed')
                 #ax.axvline(xi, color='black', linestyle='dotted', label="xi") # plot value of xi
     

@@ -1,8 +1,9 @@
 import dolfin as df
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
+#import seaborn as sns
 import argparse
+import os
 from mpi4py import MPI
 mpi_size = MPI.COMM_WORLD.Get_size()
 mpi_rank = MPI.COMM_WORLD.Get_rank()
@@ -12,31 +13,22 @@ if mpi_size > 1:
               "simply running the parameter scan in parallel instead.")
     exit()
 
-
-plt.rcParams.update({
-    "text.usetex": True,  # Use LaTeX for proper formatting
-    "font.family": "serif",  # Match JFM style
-    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
-    "font.size": 25,  # Default text size (JFM uses ~8pt for labels)
-    "axes.titlesize": 20,  # Title size (slightly larger)
-    "axes.labelsize": 24,  # Axis labels (JFM ~8pt)
-    "xtick.labelsize": 20,  # Tick labels
-    "ytick.labelsize": 20,
-    "legend.fontsize": 12,  # Legend size
-    "figure.figsize": (5.5, 3),  # Keep plots compact (JFM prefers small plots)
-    "lines.linewidth": 1.5,  # Thin lines
-    "lines.markersize": 8,  # Small but visible markers
-    "figure.subplot.wspace": 0.35,  # Horizontal spacing
-    "figure.subplot.bottom": 0.15,  # Space for x-labels
-    "axes.labelpad": 8, #default is 5
-})
-
-# Enable LaTeX-style rendering
 #plt.rcParams.update({
-#    "text.usetex": True,
-#    "font.family": "serif",
+#    "text.usetex": False,  # Use LaTeX for proper formatting
+#    "font.family": "serif",  # Match JFM style
 #    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
-#    "font.size": 12,
+#    "font.size": 25,  # Default text size (JFM uses ~8pt for labels)
+#    "axes.titlesize": 20,  # Title size (slightly larger)
+#    "axes.labelsize": 24,  # Axis labels (JFM ~8pt)
+#    "xtick.labelsize": 20,  # Tick labels
+#    "ytick.labelsize": 20,
+#    "legend.fontsize": 12,  # Legend size
+#    "figure.figsize": (5.5, 3),  # Keep plots compact (JFM prefers small plots)
+#    "lines.linewidth": 1.5,  # Thin lines
+#    "lines.markersize": 8,  # Small but visible markers
+#    "figure.subplot.wspace": 0.35,  # Horizontal spacing
+#    "figure.subplot.bottom": 0.15,  # Space for x-labels
+#    "axes.labelpad": 8, #default is 5
 #})
 
 class Left(df.SubDomain):
@@ -49,23 +41,28 @@ class Right(df.SubDomain):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve the linearised model")
-    parser.add_argument("-Pe", default=100.0, type=float, help="Peclet number")
-    parser.add_argument("-k", default=1.0, type=float, help="Wavelength")
+    parser.add_argument("-Pe", default=1, type=float, help="Peclet number")
+    parser.add_argument("-k", default=1, type=float, help="Wavelength")
     parser.add_argument("-Gamma", default=1.0, type=float, help="Heat conductivity")
-    parser.add_argument("-beta", default=0.001, type=float, help="Viscosity ratio")
+    parser.add_argument("-beta", default=1e-8, type=float, help="Viscosity ratio")
     parser.add_argument("-eps", default=1e-3, type=float, help="Perturbation amplide")
     parser.add_argument("-tpert", default=0.1, type=float, help="Perturbation duration")
-    parser.add_argument("-dt", default=0.01, type=float, help="Timestep")
+    parser.add_argument("-dt", default=0.005, type=float, help="Timestep")
     parser.add_argument("-nx", default=1000, type=int, help="Number of mesh points")
-    parser.add_argument("-Lx", default=50.0, type=float, help="System size")
+    parser.add_argument("-Lx", default=20.0, type=float, help="System size")
     parser.add_argument("-tmax", default=10.0, type=float, help="Total time")
+    parser.add_argument('--plot', action='store_true', help='Flag for plotting the eigenfunctions')
+    parser.add_argument('--latex', action='store_true', help='Flag for plotting in LaTeX style')
+    parser.add_argument('--nosavedata', action='store_true', help='Flag for not saving the growth rate in a .txt file')
+    parser.add_argument('--notaylor', action='store_true', help='Flag for removing Taylor dispersion')
     return parser.parse_args()
 
 if __name__ == "__main__":
 
-    cmap_space = sns.color_palette("mako", as_cmap=True)
-    cmap_time = sns.color_palette("rocket", as_cmap=True)
-    #cmap_space = plt.cm.cividis
+    #cmap_space = sns.color_palette("mako", as_cmap=True)
+    #cmap_time = sns.color_palette("rocket", as_cmap=True)
+    cmap_space = plt.cm.cividis
+    cmap_time = plt.cm.cividis
     
     args = parse_args()
 
@@ -81,13 +78,21 @@ if __name__ == "__main__":
     eps = args.eps
     tpert = args.tpert
 
+    plot = args.plot
+    latex = args.latex
+    nosavedata = args.nosavedata
+    notaylor = args.notaylor
+    
     plot_intv = 100
 
     #k = df.Constant(2*np.pi/lam)
     k = df.Constant(kk)
     
-    kappa = 1/Pe
-    kappa_par = 2.0 / 105 * Pe # equivalent to (2.0 / 105) * Pe
+    kappa = 1./Pe
+    if (notaylor == True):
+        kappa_par = 0.
+    else:
+        kappa_par = 2.0 / 105 * Pe # equivalent to (2.0 / 105) * Pe
     kappa_eff = kappa + kappa_par
     psi = -np.log(beta)
     xi = (- 1 + np.sqrt(1 + 4*kappa_eff*Gamma))/(2*kappa_eff)
@@ -169,7 +174,7 @@ if __name__ == "__main__":
     # define boundary conditions
     
     bc_T_l = df.DirichletBC(W.sub(0), 0., subd, 1) # apply T = 0 to the left boundary
-    bc_T_r = df.DirichletBC(W.sub(0), 0., subd, 2) # apply T = 0 to the right boundary
+    #bc_T_r = df.DirichletBC(W.sub(0), 0., subd, 2) # apply T = 0 to the right boundary
     bc_u_l = df.DirichletBC(W.sub(1), onoff, subd, 1) # apply u = onoff to the left boundary
 
     bcs = [bc_T_l, bc_u_l]
@@ -212,15 +217,15 @@ if __name__ == "__main__":
             
         it += 1
         
-        if (it % plot_intv == 0):
+        if (it % plot_intv == 0 and plot):
             color = cmap_time(1. - 0.75*t/tmax)
             axa[0].plot(x_values, T_values, label=f"$t={t:1.2f}$", color=color) # plot T vs x
             axa[1].plot(x_values, u_values, label=f"$t={t:1.2f}$", color=color) # plot ux vs x
             
             axb[0].plot(x_values, T_values/Tmax, label=f"$t={t:1.2f}$", color=color) # plot T/Tmax vs x
             axb[1].plot(x_values, u_values/umax, label=f"$t={t:1.2f}$", color=color) # plot ux/ux_max vs x
-            axb[0].set_xlim(0, 20)
-            axb[1].set_xlim(0, 20)
+            #axb[0].set_xlim(0, 20)
+            #axb[1].set_xlim(0, 20)
             
     datamax = np.array(datamax)
     data = np.array(data)
@@ -238,86 +243,107 @@ if __name__ == "__main__":
     print(f"gamma = {gamma}")
     print(f"gamma_standard_error = {gamma_standard_error}")
     
-    # write the gamma value in the related file
-    Pe_str = f"Pe_{Pe:.10g}"
-    Gamma_str = f"Gamma_{Gamma:.10g}"
-    beta_str = f"beta_{beta:.10g}"
-    output_folder = f"results/output_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
-    with open(output_folder + "gamma_linear.txt", "a") as file:
-        file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
+    # Write the gamma value in the related file
     
-    exit(0)
+    if nosavedata == False:
+        Pe_str = f"Pe_{Pe:.10g}"
+        Gamma_str = f"Gamma_{Gamma:.10g}"
+        beta_str = f"beta_{beta:.10g}"
+        output_folder = f"results/output_"
+        if notaylor:
+            output_folder += "notaylor_"
+        output_folder += "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+        os.makedirs(output_folder, exist_ok=True)
+        with open(output_folder + "gamma_linear.txt", "a") as file:
+            file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
     
     # Plot results
     
-    fig_, ax_ = plt.subplots(1, 1, figsize=(7.5, 5.))
-    ax_.plot(datamax[:, 0], datamax[:, 1]) # plot Tmax vs time
-    ax_.plot(datamax[istart//2:9*n_steps//10, 0], 1e-4*np.exp(gamma*datamax[istart//2:9*n_steps//10, 0]), color='black', linestyle='dotted', label=r"fit") # plot fitting line
-    ax_.semilogy()
-    ax_.set_xlabel(r"$t$")
-    ax_.set_ylabel(r"$T_{\rm max}$")
-    ax_.legend()
-    fig_.subplots_adjust(left=0.15)
-    
-    figt, axt = plt.subplots(1, 2, figsize=(15., 5.))
-    i = 0
-    while i < len_x_sample_:
-        color = cmap_space(1. - i / len_x_sample_)
-        x_sample = x_sample_[i]
-        axt[0].plot(data[:, 0], data[:, 2*i + 1], label=f"$x={x_sample:1.1f}$", color=color) # plot T(x=x0) vs time
-        axt[1].plot(data[:, 0], data[:, 2*i + 2], label=f"$x={x_sample:1.1f}$", color=color) # plot ux(x=x0) vs time
-        n_start = 2*istart//3
-        n_end = 9*n_steps//10
-        i += 1
-    axt[0].plot(datamax[n_start:n_end, 0], 5*1e-5*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed') # plot fitting line
-    axt[1].plot(datamax[n_start:n_end, 0], 3*1e-4*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed')
-    [axti.semilogy() for axti in axt]
-    [axti.set_xlabel(r"$t$") for axti in axt]
-    #axt[0].legend(fontsize=12)
-    axt[0].set_ylabel(r"$T_k$")
-    axt[1].set_ylabel(r"$u_k$")
-    ylab_xpos_l = axt[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
-    ylab_xpos_r = axt[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
-    figt.text(ylab_xpos_l + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
-    figt.text(ylab_xpos_r + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
-    
-    [axai.set_xlabel(r"$x$") for axai in axa]
-    axa[0].set_ylabel(r"$T_k(x)$")
-    axa[1].set_ylabel(r"$u_k(x)$")
-    for axi in axa:
-        xmin, xmax = 0, 20
-        padding = 0.05 * (xmax - xmin)  # 5% padding
-        axi.set_xlim(xmin - padding, xmax + padding)
-    axa[0].legend()
-    
-    G = gamma + kk*kappa + Gamma
-    Lambda_k = (-1 + np.sqrt(1 + 4*G*kappa_eff) )/(2*kappa_eff) # decay rate of the solution of the ODE for T0 = 0
-    print("Lambda_k = ", Lambda_k)
-    
-    n_start_x = np.argmin(np.abs(x_values - 22.))
-    n_end_x = np.argmin(np.abs(x_values - 5.)) + 1
-    axb[0].plot(x_values[n_start_x:n_end_x], [100 * np.exp(- Lambda_k * x_) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dashed', label="$\sim e^{-\Lambda*x}$")
-    #axb[1].plot(x_values[n_start_x:n_end_x], [250 * (np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dotted', label="$\sim Ae^{-\Lambda*x} + Be^{-k*x}$")
-    axb[0].set_ylim(3*1e-11, 1e1)
-    axb[1].set_ylim(8*1e-8, 5)
-    ylab_xpos_l_b = axb[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
-    ylab_xpos_r_b = axb[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
-    fig.text(ylab_xpos_l_b + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
-    fig.text(ylab_xpos_r_b + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
-    [axbi.set_xlabel(r"$x$") for axbi in axb]
-    axb[0].set_ylabel(r"$T_k(x)/T_{\max}$")
-    axb[1].set_ylabel(r"$u_k(x)/u_{\max}$")
-    for axi in axb:
-        xmin, xmax = 0, 20
-        padding = 0.05 * (xmax - xmin)  # 5% padding
-        axi.set_xlim(xmin - padding, xmax + padding)
-    #axb[0].legend()
-    axb[0].semilogy()
-    axb[1].semilogy()
-    
-    outpute_imgs_folder = "results/imgs"
-    fig.savefig(outpute_imgs_folder + "/T_and_u_vs_x.pdf", dpi=600, bbox_inches="tight")
-    fig_.savefig(outpute_imgs_folder + "/Tmax_vs_t.pdf", dpi=600, bbox_inches="tight")
-    figt.savefig(outpute_imgs_folder + "/T_and_u_vs_t.pdf", dpi=600, bbox_inches="tight")
-    
-    plt.show()
+    if plot:
+        if latex:
+            plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+            "font.size": 12,
+            })
+        
+        # Plot T_max vs time and the semi-log fit
+        
+        fig_, ax_ = plt.subplots(1, 1, figsize=(7.5, 5.))
+        ax_.plot(datamax[:, 0], datamax[:, 1]) # plot Tmax vs time
+        ax_.plot(datamax[istart//2:9*n_steps//10, 0], 1e-4*np.exp(gamma*datamax[istart//2:9*n_steps//10, 0]), color='black', linestyle='dotted', label=r"fit") # plot fitting line
+        ax_.semilogy()
+        ax_.set_xlabel(r"$t$")
+        ax_.set_ylabel(r"$T_{\rm max}$")
+        ax_.legend()
+        fig_.subplots_adjust(left=0.15)
+        
+        # Plot T and ux vs time
+        
+        figt, axt = plt.subplots(1, 2, figsize=(15., 5.))
+        i = 0
+        while i < len_x_sample_:
+            color = cmap_space(1. - i / len_x_sample_)
+            x_sample = x_sample_[i]
+            axt[0].plot(data[:, 0], data[:, 2*i + 1], label=f"$x={x_sample:1.1f}$", color=color) # plot T(x=x0) vs time
+            axt[1].plot(data[:, 0], data[:, 2*i + 2], label=f"$x={x_sample:1.1f}$", color=color) # plot ux(x=x0) vs time
+            n_start = 2*istart//3
+            n_end = 9*n_steps//10
+            i += 1
+        axt[0].plot(datamax[n_start:n_end, 0], 5*1e-5*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed') # plot fitting line
+        axt[1].plot(datamax[n_start:n_end, 0], 3*1e-4*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed')
+        [axti.semilogy() for axti in axt]
+        [axti.set_xlabel(r"$t$") for axti in axt]
+        axt[0].legend(fontsize=12)
+        axt[0].set_ylabel(r"$T_k$")
+        axt[1].set_ylabel(r"$u_k$")
+        ylab_xpos_l = axt[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
+        ylab_xpos_r = axt[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
+        figt.text(ylab_xpos_l + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
+        figt.text(ylab_xpos_r + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
+        
+        # Plot T and ux vs x
+        
+        [axai.set_xlabel(r"$x$") for axai in axa]
+        axa[0].set_ylabel(r"$T_k(x)$")
+        axa[1].set_ylabel(r"$u_k(x)$")
+        #for axi in axa:
+        #    xmin, xmax = 0, 20
+        #    padding = 0.05 * (xmax - xmin)  # 5% padding
+        #    axi.set_xlim(xmin - padding, xmax + padding)
+        #axa[0].legend()
+        
+        G = gamma + kk*kappa + Gamma
+        Lambda_k = (-1 + np.sqrt(1 + 4*G*kappa_eff) )/(2*kappa_eff) # decay rate of the solution of the ODE for T0 = 0
+        print("Lambda_k = ", Lambda_k)
+        
+        # Plot T/T_max and ux/ux_max vs x
+        
+        n_start_x = np.argmin(np.abs(x_values - 22.))
+        n_end_x = np.argmin(np.abs(x_values - 5.)) + 1
+        axb[0].plot(x_values[n_start_x:n_end_x], [100 * np.exp(- Lambda_k * x_) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dashed', label="$\sim e^{-\Lambda*x}$")
+        axb[1].plot(x_values[n_start_x:n_end_x], [250 * (np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dotted', label="$\sim Ae^{-\Lambda*x} + Be^{-k*x}$")
+        #axb[0].set_ylim(3*1e-11, 1e1)
+        #axb[1].set_ylim(8*1e-8, 5)
+        ylab_xpos_l_b = axb[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
+        ylab_xpos_r_b = axb[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
+        fig.text(ylab_xpos_l_b + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
+        fig.text(ylab_xpos_r_b + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
+        [axbi.set_xlabel(r"$x$") for axbi in axb]
+        axb[0].set_ylabel(r"$T_k(x)/T_{\max}$")
+        axb[1].set_ylabel(r"$u_k(x)/u_{\max}$")
+        #for axi in axb:
+        #    xmin, xmax = 0, 20
+        #    padding = 0.05 * (xmax - xmin)  # 5% padding
+        #    axi.set_xlim(xmin - padding, xmax + padding)
+        axb[0].legend()
+        axb[0].semilogy()
+        axb[1].semilogy()
+        
+        outpute_imgs_folder = "results/imgs"
+        #fig.savefig(outpute_imgs_folder + "/T_and_u_vs_x.pdf", dpi=600, bbox_inches="tight")
+        #fig_.savefig(outpute_imgs_folder + "/Tmax_vs_t.pdf", dpi=600, bbox_inches="tight")
+        #figt.savefig(outpute_imgs_folder + "/T_and_u_vs_t.pdf", dpi=600, bbox_inches="tight")
+        
+        plt.show()

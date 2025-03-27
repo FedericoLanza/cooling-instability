@@ -26,6 +26,7 @@ def parse_args():
     #parser.add_argument('rtol', type=float, help='Value for error function')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
+    parser.add_argument('--constDeltaP',action='store_true', help='Flag for imposing constant pressure, instead of constant flow rate, at the inlet boundary')
     # parser.add_argument("--show", action="store_true", help="Show") # optional argument: typing --show enables the "show" feature
     parser.add_argument("--snap", action="store_true", help="Snap") # optional argument: typing --snap enables the "snap" feature
     return parser.parse_args()
@@ -59,7 +60,8 @@ if __name__ == "__main__":
     # flags
     rnd = args.rnd
     holdpert = args.holdpert
-    
+    constDeltaP = args.constDeltaP
+        
     Pe_str = f"Pe_{Pe:.10g}"
     Gamma_str = f"Gamma_{Gamma:.10g}"
     beta_str = f"beta_{beta:.10g}"
@@ -71,7 +73,10 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
+    out_dir = "results/"
+    if constDeltaP:
+        out_dir += "constDeltaP_"
+    out_dir += "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -270,8 +275,6 @@ if __name__ == "__main__":
         
         plt.show()
         plt.close()
-
-    exit(0)
     
     # Analyze time evolution
     
@@ -398,7 +401,6 @@ if __name__ == "__main__":
     np.savetxt(out_dir + f'/umax.txt', umax_data, fmt='%1.9f')
     
     #plt.show()
-    #exit(0)
     
     cmap = plt.cm.viridis
     figf, axf = plt.subplots(1, 3, figsize=(30, 5))

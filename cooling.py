@@ -16,19 +16,20 @@ from utils import get_next_subfolder, mpi_comm, mpi_rank, mpi_size
 parser = argparse.ArgumentParser(description='Process some parameters.')
 
 # Define the command-line arguments
-parser.add_argument('Pe', type=float, help='Value for Peclet number')
-parser.add_argument('Gamma', type=float, help='Value for heat transfer ratio')
-parser.add_argument('beta', type=float, help='Value for viscosity ratio')
-parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
-parser.add_argument('Ly', type=float, help='Value for wavelength')
-parser.add_argument('Lx', type=float, help='Value for system size')
-parser.add_argument('dt', type=float, help='Value for time interval')
-parser.add_argument('t_pert', type=float, help='Value for perturbation time')
-parser.add_argument('t_end', type=float, help='Value for final time')
+parser.add_argument('--Pe', type=float, help='Value for Peclet number')
+parser.add_argument('--Gamma', type=float, help='Value for heat transfer ratio')
+parser.add_argument('--beta', type=float, help='Value for viscosity ratio')
+parser.add_argument('--ueps', type=float, help='Value for amplitude of the perturbation')
+parser.add_argument('--Ly', type=float, help='Value for wavelength')
+parser.add_argument('--Lx', type=float, help='Value for system size')
+parser.add_argument('--dt', type=float, help='Value for time interval')
+parser.add_argument('--t_pert', type=float, help='Value for perturbation time')
+parser.add_argument('--t_end', type=float, help='Value for final time')
 #parser.add_argument('ny', type=float, help='Value for tile density along y')
 #parser.add_argument('rtol', type=float, help='Value for error function')
 parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
 parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
+parser.add_argument('--constDeltaP',action='store_true', help='Flag for imposing constant pressure, instead of constant flow rate, at the inlet boundary')
 
 # Parse the command-line arguments
 args = parser.parse_args()
@@ -106,6 +107,7 @@ if __name__ == "__main__":
     # Flags
     rnd = args.rnd
     holdpert = args.holdpert
+    constDeltaP = args.constDeltaP
     
     dt = args.dt # time interval (default value: 0.005)
     t = 0. # starting time
@@ -155,16 +157,44 @@ if __name__ == "__main__":
     # Create Dirichlet boundary condition
     inlet_facets = locate_entities_boundary(mesh, 1, inlet_boundary)
     outlet_facets = locate_entities_boundary(mesh, 1, outlet_boundary)
+    
     inlet_dofs = dfx.fem.locate_dofs_topological(S, 1, inlet_facets)
     outlet_dofs = dfx.fem.locate_dofs_topological(S, 1, outlet_facets)
 
     bc_T_inlet = dfx.fem.dirichletbc(1., inlet_dofs, S) # T = 1 at x = 0
     bcs_T = [bc_T_inlet] # Dirichlet boundary condition for T problem
 
-    #bc_p_inlet = dfx.fem.dirichletbc(1., inlet_dofs, S)
     bc_p_outlet = dfx.fem.dirichletbc(0., outlet_dofs, S) # P = 0 at x = L
-    #bcs_p = [bc_p_inlet, bc_p_outlet]
-    bcs_p = [bc_p_outlet] # Dirichlet boundary condition for Darcy problem
+    if (constDeltaP == True):
+        
+        # Get DOF coordinates
+        dof_coords = S.tabulate_dof_coordinates()
+        
+        # Check the shape of dof_coords
+        print(f"Shape of dof_coords: {dof_coords.shape}")
+        
+        # If it's a 1D array, reshape it to 2D (ensure correct number of columns for the mesh geometry)
+        if dof_coords.ndim == 1:
+            dof_coords = dof_coords.reshape(-1, mesh.geometry.dim)
+            
+        # Now dof_coords should be reshaped correctly
+        print(f"Reshaped dof_coords: {dof_coords.shape}")
+        
+        # Compute boundary values at x=0
+        bc_values = np.array([1.0 + ueps*np.sin(2.0 * np.pi * coord[1] / Ly) for coord in dof_coords[inlet_dofs]])
+        
+        # Now, we will create a Function in the space `S` to store the boundary condition values
+        bc_constant = dfx.fem.Constant(mesh, bc_values[0])
+        
+        # Define Dirichlet BC using NumPy array
+        bc_p_inlet = dfx.fem.dirichletbc(bc_constant, inlet_dofs, S) # P = 1. + (2*pi/lambda)*sin(y) at x = 0.
+        bcs_p = [bc_p_inlet, bc_p_outlet]
+        
+        bc_p_inlet_2 = dfx.fem.dirichletbc(1., inlet_dofs, S) # P = 1. at x = 0.
+        bcs_p2 = [bc_p_inlet_2, bc_p_outlet]
+    else:
+        bcs_p = [bc_p_outlet] # Dirichlet boundary condition for Darcy problem
+        bcs_p2 = [bc_p_outlet]
 
     # Create periodic boundary conditions
     mpc_T = MultiPointConstraint(S)
@@ -206,16 +236,22 @@ if __name__ == "__main__":
     ux0 = dfx.fem.Function(mpc_p.function_space, name="ux0")
     if rnd is False:
         #ux0 = u0 + ueps*ufl.sin(2*ufl.pi*x[1]/Ly) # velocity at inlet (before: u0 = ufl.as_vector((1.0 + 1.0*ufl.sin(2*ufl.pi*x[1]), 0.)))
-        ux0 = u0 + ueps*ufl.sin(4*ufl.pi*x[1]/Ly)
+        ux0 = u0 + ueps*ufl.sin(2*ufl.pi*x[1]/Ly)
     else:
         ux0.x.array[:] = u0 + ueps*np.random.randn()
     
     # velocity at inlet without perturbation
     ux0_2 = dfx.fem.Function(mpc_p.function_space, name="ux0_2")
     ux0_2.x.array[:] = u0
+
     
-    # Problem for p during perturbation (nabla u = nabla ( - mob * nabla P) = 0, u = ux0 at x = 0)
-    F_p = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0 * b * ds(1) # nabla u = nabla ( - mob * nabla P) = 0
+    # Problem for p during perturbation
+    # constant inlet flow rate: nabla u = nabla ( - mob * nabla P) = 0, u = ux0 at x = 0
+    # constant pressure drop: nabla u = nabla ( - mob * nabla P) = 0
+    if (constDeltaP == True):
+        F_p = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - dfx.fem.Constant(mesh, 0.0) * b * ufl.dx
+    else:
+        F_p = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0 * b * ds(1)
     a_p = ufl.lhs(F_p)
     L_p = ufl.rhs(F_p)
     
@@ -225,11 +261,14 @@ if __name__ == "__main__":
                                              "pc_hypre_boomeramg_print_statistics": 0})
     
     # Problem for p after perturbation (nabla u = nabla ( -(k/mu(T)) nabla P) = 0, u = ux0_2 at x = 0)
-    F_p2 = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0_2 * b * ds(1)
+    if (constDeltaP == True):
+        F_p2 = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - dfx.fem.Constant(mesh, 0.0) * b * ufl.dx
+    else:
+        F_p2 = mob_ * ufl.dot(ufl.grad(T), ufl.grad(b)) * ufl.dx - ux0_2 * b * ds(1)
     a_p2 = ufl.lhs(F_p2)
     L_p2 = ufl.rhs(F_p2)
     
-    problem_p2 = LinearProblem(a_p2, L_p2, mpc_p, u=p_, bcs=bcs_p,
+    problem_p2 = LinearProblem(a_p2, L_p2, mpc_p, u=p_, bcs=bcs_p2,
                               petsc_options={"ksp_type": "cg", "ksp_rtol": rtol, "pc_type": "hypre", "pc_hypre_type": "boomeramg",
                                              "pc_hypre_boomeramg_max_iter": 1, "pc_hypre_boomeramg_cycle_type": "v",
                                              "pc_hypre_boomeramg_print_statistics": 0})
@@ -266,7 +305,11 @@ if __name__ == "__main__":
     rnd_str = f"rnd_{rnd}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
+    if (constDeltaP == True):
+        out_dir = "results/constDeltaP_"
+    else:
+        out_dir = "results/2"
+    out_dir += "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")
     # xdmff_u = dfx.io.XDMFFile(mesh.comm, out_dir + "u.xdmf", "w")

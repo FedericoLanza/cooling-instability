@@ -22,16 +22,21 @@ class Right(df.SubDomain):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve the linearised model")
-    parser.add_argument("-Pe", default=1e5, type=float, help="Peclet number")
-    parser.add_argument("-k", default=1, type=float, help="Wavelength")
-    parser.add_argument("-Gamma", default=1.0, type=float, help="Heat conductivity")
+    parser.add_argument("-Pe", default=10000, type=float, help="Peclet number")
+    parser.add_argument("-k", default=2., type=float, help="Wavelength")
+    parser.add_argument("-Gamma", default=1, type=float, help="Heat conductivity")
     parser.add_argument("-beta", default=1e-1, type=float, help="Viscosity ratio")
     parser.add_argument("-eps", default=1e-3, type=float, help="Perturbation amplide")
-    parser.add_argument("-tpert", default=0.1, type=float, help="Perturbation duration")
-    parser.add_argument("-dt", default=0.01, type=float, help="Timestep")
-    parser.add_argument("-nx", default=6000, type=int, help="Number of mesh points")
-    parser.add_argument("-Lx", default=300.0, type=float, help="System size")
-    parser.add_argument("-tmax", default=10.0, type=float, help="Total time")
+    parser.add_argument("-tpert", default=1, type=float, help="Perturbation duration")
+    parser.add_argument("-dt", default=0.005, type=float, help="Timestep")
+    parser.add_argument("-nx", default=1000, type=int, help="Number of mesh points")
+    parser.add_argument("-Lx", default=20, type=float, help="System size")
+    parser.add_argument("-tmax", default=20.0, type=float, help="Total time")
+    parser.add_argument('--plot', action='store_true', help='Flag for plotting or not the eigenfunctions')
+    parser.add_argument('--nosavedata', action='store_true', help='Flag for saving or not the growth rate in a .txt file')
+    parser.add_argument('--pert_T', action='store_true', help='Flag for perturbing the temperature field instead of the pressure')
+    parser.add_argument('--unif_flux', action='store_true', help='Flag for keeping the flux uniform instead of the pressure (so like linear_model_Tu.py)')
+    parser.add_argument('--notaylor', action='store_true', help='Flag for removing Taylor dispersion')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -43,22 +48,34 @@ if __name__ == "__main__":
     dt = args.dt
     nx = args.nx
     Lx = args.Lx
-    tmax = args.tmax # 10.0
-
-    Pe = args.Pe # 10**0.75 #100.0
-    kk = args.k # 2.0 # 4.0
-    Gamma = args.Gamma #1.0
-    beta = args.beta # 0.001
-    eps = args.eps # 1e-1
-    tpert = args.tpert # 0.1
-
+    tmax = args.tmax
+    
+    Pe = args.Pe
+    kk = args.k
+    Gamma = args.Gamma
+    beta = args.beta
+    eps = args.eps
+    tpert = args.tpert
+    
+    plot = args.plot
+    nosavedata = args.nosavedata
+    pert_T = args.pert_T
+    unif_flux = args.unif_flux
+    notaylor = args.notaylor
+    
+    #nx = round(nx/np.sqrt(Gamma))
+    #Lx = round(Lx/np.sqrt(Gamma))
+    
     plot_intv = 100
     
     #k = df.Constant(2*np.pi/lam)
     k = df.Constant(kk)
 
     kappa = 1.0 / Pe
-    kappa_par = 2.0 / 105 * Pe # equivalent to (2.0 / 105) * Pe
+    if (notaylor == True):
+        kappa_par = 0.
+    else:
+        kappa_par = 2.0 / 105 * Pe # equivalent to (2.0 / 105) * Pe
     kappa_eff = kappa + kappa_par
     psi = -np.log(beta)
     xi = (- 1 + np.sqrt(1 + 4*kappa_eff*Gamma))/(2*kappa_eff)
@@ -121,26 +138,34 @@ if __name__ == "__main__":
     Fp = + betamT0 * p.dx(0) * q.dx(0) * df.dx \
         + betamT0 * k**2 * p * q * df.dx \
         + psi * T.dx(0) * q * df.dx
-        # - onoff * q * ds(1)
 
+    if (unif_flux == True):
+        Fp += - onoff * q * ds(1)
+        
     F = FT + Fp
 
     # define boundary conditions
     
-    bc_T_l = df.DirichletBC(W.sub(0), 0., subd, 1) # apply T = 0 to the left boundary
-    bc_T_r = df.DirichletBC(W.sub(0), 0., subd, 2) # apply T = 0 to the right boundary
-    bc_p_l = df.DirichletBC(W.sub(1), onoff, subd, 1) # apply p = onoff to the right boundary
-    # bc_p_r = df.DirichletBC(W.sub(1), 0., subd, 2) # apply p = 0 to the right boundary
-
-    bcs = [bc_T_l, bc_p_l] #, bc_T_r, bc_p_r]
-
+    if (pert_T == True):
+        bc_T_l = df.DirichletBC(W.sub(0), onoff, subd, 1) # apply T = 0 to the left boundary
+        bc_p_l = df.DirichletBC(W.sub(1), 0., subd, 1) # apply p = onoff to the left boundary
+    else:
+        bc_T_l = df.DirichletBC(W.sub(0), 0., subd, 1) # apply T = 0 to the left boundary
+        bc_p_l = df.DirichletBC(W.sub(1), onoff, subd, 1) # apply p = onoff to the left boundary
+        
+    bc_p_r = df.DirichletBC(W.sub(1), 0., subd, 2) # apply p = 0 to the right boundary
+    #bc_T_r = df.DirichletBC(W.sub(0), 0., subd, 2) # apply T = 0 to the right boundary
+    
+    if (unif_flux == True):
+        bcs = [bc_T_l, bc_p_r] #, bc_T_r]
+    else:
+        bcs = [bc_T_l, bc_p_l, bc_p_r]
+    
     # split equation in left and right member
     a, L = df.lhs(F), df.rhs(F)
 
     #xdmff_T = df.XDMFFile(mesh.mpi_comm(), "T.xdmf")
     #xdmff_p = df.XDMFFile(mesh.mpi_comm(), "p.xdmf")
-
-    plot = True
         
     data = []
     
@@ -190,7 +215,6 @@ if __name__ == "__main__":
             #axT[0].set_xlim(0, 20)
             #axT[1].set_xlim(0, 20)
         
-
     data = np.array(data)
     n_steps = len(data[:, 0])
     istart = int(tmax/dt)//2
@@ -205,58 +229,59 @@ if __name__ == "__main__":
     print(f"gamma = {gamma}")
     print(f"gamma_standard_error = {gamma_standard_error}")
     
-    # write the gamma value in the related file
-    Pe_str = f"Pe_{Pe:.10g}"
-    Gamma_str = f"Gamma_{Gamma:.10g}"
-    beta_str = f"beta_{beta:.10g}"
-    output_folder = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
-    os.makedirs(output_folder, exist_ok=True)
-    #with open(output_folder + "gamma_linear.txt", "a") as file:
-    #    file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
-        
-    # xdmff_T.close()
-    # xdmff_p.close()
+    # Write the gamma value in the related file
     
-    #exit(0)
+    if nosavedata == False:
+        Pe_str = f"Pe_{Pe:.10g}"
+        Gamma_str = f"Gamma_{Gamma:.10g}"
+        beta_str = f"beta_{beta:.10g}"
+        output_folder = f"results/outppt_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+        os.makedirs(output_folder, exist_ok=True)
+        with open(output_folder + "gamma_linear.txt", "a") as file:
+            file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
     
     # Plot results
     
-    fig_, ax_ = plt.subplots(1, 1)
-    
-    ax_.plot(data[:, 0], data[:, 1]) # plot Tmax vs time
-    #ax_.plot(data[:, 0], data[:, 2], label=r"$p_{\rm max}$")  # plot pmax vs time
-    ax_.plot(data[istart:, 0], 0.001*np.exp(gamma*data[istart:, 0]), label=r"fit") # plot fitting line
-    ax_.semilogy()
-    ax_.set_xlabel(r"$t$")
-    ax_.set_ylabel(r"$T_{\rm max}$")
-    ax_.legend()
-    
-    kk = 2
-    G = gamma + kk*kappa + Gamma
-    Lambda_k = (-1 + np.sqrt(1 + 4*G*kappa_eff) )/(2*kappa_eff)
-    
-    #axp[1].plot(x.vector()[:], [x_ * np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$x*e^{-xii*x}$", color='black')
-    axp[1].plot(x.vector()[:], [100*np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$100*e^{-\Lambda*x}$", color='black', linestyle='dashed')
-    axp[1].plot(x.vector()[:], [50*(np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x.vector()[:]], label="$50*(e^{-\Lambda*x}+e^{-k*x})$", color='black', linestyle='dotted')
-    
-    #axT[1].plot(x.vector()[:], [x_ * np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$x*e^{-xii*x}$", color='black')
-    #axT[1].plot(x.vector()[:], [100*np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$100*e^{-\Lambda*x}$", color='black', linestyle='dashed')
-    #axT[1].plot(x.vector()[:], [50*(np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x.vector()[:]], label="$50*(e^{-\Lambda*x}+e^{-k*x})$", color='black', linestyle='dotted')
-
-    [axpi.set_xlabel(r"$x$") for axpi in axp]
-    [axTi.set_xlabel(r"$x$") for axTi in axT]
+    if plot:
         
-    axp[0].set_ylabel(r"$p_k(x)$")
-    axp[1].set_ylabel(r"$p_k(x)/pmax$")
-    axT[1].set_ylabel(r"$T_k(x)/Tmax$")
-    
-    axp[0].set_title("p(x)")
-    axp[1].set_title("p(x)/p_max")
-    axT[1].set_title("T(x)/T_max")
-    
-    axp[1].semilogy()
-    axT[1].semilogy()
-    axp[0].legend()
-    axT[0].legend(fontsize=8)
-    
-    plt.show()
+        fig_, ax_ = plt.subplots(1, 1)
+        
+        ax_.plot(data[:, 0], data[:, 1]) # plot Tmax vs time
+        #ax_.plot(data[:, 0], data[:, 2], label=r"$p_{\rm max}$")  # plot pmax vs time
+        ax_.plot(data[istart:, 0], 0.001*np.exp(gamma*data[istart:, 0]), label=r"fit") # plot fitting line
+        ax_.semilogy()
+        ax_.set_xlabel(r"$t$")
+        ax_.set_ylabel(r"$T_{\rm max}$")
+        ax_.legend()
+        
+        kk = 2
+        G = gamma + kk*kappa + Gamma
+        Lambda_k = (-1 + np.sqrt(1 + 4*G*kappa_eff) )/(2*kappa_eff)
+        
+        #axp[1].plot(x.vector()[:], [x_ * np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$x*e^{-xii*x}$", color='black')
+        #axp[1].plot(x.vector()[:], [100*np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$100*e^{-\Lambda*x}$", color='black', linestyle='dashed')
+        #axp[1].plot(x.vector()[:], [50*(np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x.vector()[:]], label="$50*(e^{-\Lambda*x}+e^{-k*x})$", color='black', linestyle='dotted')
+        
+        #axT[1].plot(x.vector()[:], [x_ * np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$x*e^{-xii*x}$", color='black')
+        axT[1].plot(x.vector()[:], [100*np.exp(- Lambda_k * x_) for x_ in x.vector()[:]], label="$100*e^{-\Lambda*x}$", color='black', linestyle='dashed')
+        #axT[1].plot(x.vector()[:], [50*(np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x.vector()[:]], label="$50*(e^{-\Lambda*x}+e^{-k*x})$", color='black', linestyle='dotted')
+
+        [axpi.set_xlabel(r"$x$") for axpi in axp]
+        [axTi.set_xlabel(r"$x$") for axTi in axT]
+            
+        axp[0].set_ylabel(r"$p_k(x)$")
+        axp[1].set_ylabel(r"$p_k(x)/pmax$")
+        axT[0].set_ylabel(r"$T_k(x)$")
+        axT[1].set_ylabel(r"$T_k(x)/Tmax$")
+        
+        axp[0].set_title("p(x)")
+        axp[1].set_title("p(x)/p_max")
+        axT[0].set_title("T(x)")
+        axT[1].set_title("T(x)/T_max")
+        
+        axp[1].semilogy()
+        axT[1].semilogy()
+        axp[0].legend()
+        axT[0].legend(fontsize=8)
+        
+        plt.show()

@@ -328,16 +328,16 @@ if __name__ == "__main__":
         
         return im_uy
     
-    #print('making video for T')
-    #animation_T = animation.FuncAnimation(figT, update_T, frames=num_frames, blit=False)
-    #Writer = animation.writers['ffmpeg']
-    #writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=1800)
-    #animation_T.save(out_dir + '/T.mp4', writer=writer)
-    print('making video for ux')
-    animation_ux = animation.FuncAnimation(figux, update_ux, frames=num_frames, blit=False)
+    print('making video for T')
+    animation_T = animation.FuncAnimation(figT, update_T, frames=num_frames, blit=False)
     Writer = animation.writers['ffmpeg']
     writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=1800)
-    animation_ux.save(out_dir + '/ux.mp4', fps=60, extra_args=['-vcodec', 'libx264'])
+    animation_T.save(out_dir + '/T.mp4', writer=writer)
+    #print('making video for ux')
+    #animation_ux = animation.FuncAnimation(figux, update_ux, frames=num_frames, blit=False)
+    #Writer = animation.writers['ffmpeg']
+    #writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=1800)
+    #animation_ux.save(out_dir + '/ux.mp4', fps=60, extra_args=['-vcodec', 'libx264'])
     #print('making video for uy')
     #animation_uy = FuncAnimation(figuy, update_uy, frames=num_frames, blit=False)
     #animation_uy.save(out_dir + '/uy.mp4', fps=60, extra_args=['-vcodec', 'libx264'])

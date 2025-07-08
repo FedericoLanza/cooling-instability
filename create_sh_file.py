@@ -6,22 +6,22 @@ import numpy as np
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
-    parser.add_argument('Pe', type=float, help='Value for Peclet number')
-    parser.add_argument('Gamma', type=float, help='Value for heat transfer ratio')
-    parser.add_argument('beta', type=float, help='Value for viscosity ratio')
-    parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
-    parser.add_argument('Ly', type=float, help='Value for wavelength')
-    parser.add_argument('Lx', type=float, help='Value for system size')
-    parser.add_argument('dt', type=float, help='Value for time interval')
-    parser.add_argument('t_pert', type=float, help='Value for perturbation time')
-    parser.add_argument('t_end', type=float, help='Value for final time')
+    parser.add_argument('--Pe', default=100, type=float, help='Value for Peclet number')
+    parser.add_argument('--Gamma', default=1, type=float, help='Value for heat transfer ratio')
+    parser.add_argument('--beta', default=1e-3, type=float, help='Value for viscosity ratio')
+    parser.add_argument('--ueps', default=0.001, type=float, help='Value for amplitude of the perturbation')
+    parser.add_argument('--Ly', default=2, type=float, help='Value for wavelength')
+    parser.add_argument('--Lx', default=50, type=float, help='Value for system size')
+    parser.add_argument('--dt', default=0.005, type=float, help='Value for time interval')
+    parser.add_argument('--t_pert', default=0.1, type=float, help='Value for perturbation time')
+    parser.add_argument('--t_end', default=20, type=float, help='Value for final time')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
     parser.add_argument('--many', action='store_true', help='Flag for starting multiple jobs varying a parameter')
     return parser.parse_args()
     
 def create_script(Pe, Gamma, beta, ueps, Ly, Lx, rnd, holdpert, dt, t_pert, t_end):
-    command_line = f"mpirun python3 cooling.py {Pe} {Gamma} {beta} {ueps} {Ly} {Lx} {dt} {t_pert} {t_end}"
+    command_line = f"mpirun python3 cooling.py --Pe {Pe} --Gamma {Gamma} --beta {beta} --ueps {ueps} --Ly {Ly} --Lx {Lx} --dt {dt} --t_pert {t_pert} --t_end {t_end}"
     if rnd:
          command_line = command_line + " --rnd"
     if holdpert:
@@ -86,5 +86,3 @@ if __name__ == "__main__":
             
         # submit the job
         subprocess.run(["sbatch", filename])
-        
-    

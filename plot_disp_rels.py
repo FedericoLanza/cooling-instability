@@ -86,12 +86,13 @@ def read_table_const_spacing(file_path, spacing, tolerance=1e-6):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
-    parser.add_argument('-Pe', type=float, help='Value for Peclet number')
-    parser.add_argument('-Gamma', type=float, help='Value for heat transfer ratio')
-    parser.add_argument('-beta', type=float, help='Value for viscosity ratio')
+    parser.add_argument('--Pe', type=float, help='Value for Peclet number')
+    parser.add_argument('--Gamma', type=float, help='Value for heat transfer ratio')
+    parser.add_argument('--beta', type=float, help='Value for viscosity ratio')
     parser.add_argument('--tp', action='store_true', help='Flag for analyzing the data coming from linear_model_tp.py instead of linear_model_tu.py')
     parser.add_argument('--nofit', action='store_true', help='Flag for choosing whether to fit the points around the maximum')
     parser.add_argument('--both', action='store_true', help='Flag for plotting both data from Tp and Tu')
+    parser.add_argument('--find_betac', action='store_true', help='Flag for plotting both data from Tp and Tu')
     parser.add_argument('--latex', action='store_true', help='Flag for plotting in LaTeX style')
     parser.add_argument('--aesthetic', action='store_true', help='Flag for generating plots to present in the article')
     
@@ -109,6 +110,7 @@ if __name__ == "__main__":
     tp = args.tp
     nofit = args.nofit
     both = args.both
+    find_betac = args.find_betac
     latex = args.latex
     aesthetic = args.aesthetic
     
@@ -138,28 +140,99 @@ if __name__ == "__main__":
     
     if Pe == None:
         multi_Pe = True
-        Pe_ = [10**a for a in np.arange(1, 5, 1)]
+        Pe_ = [10**a for a in np.arange(0, 4.01, 1)]
     else:
         Pe_ = [Pe]
         Pe_str = f"_Pe_{Pe:.10g}"
         output_image += Pe_str
         
-    if beta == None:
-        multi_beta = True
-        beta_ = [10**a for a in np.arange(-4., -0.99, 1)]
-    else:
-        beta_ = [beta]
-        beta_str = f"_beta_{beta:.10g}"
-        output_image += beta_str
-        
     if Gamma == None:
         multi_Gamma = True
-        Gamma_ = [2**a for a in np.arange(-1., 3., 1)]
+        Gamma_ = [2**a for a in np.arange(-1., 2.01, 1)]
     else:
         Gamma_ = [Gamma]
         Gamma_str = f"_Gamma_{Gamma:.10g}"
         output_image += Gamma_str
     
+    if beta == None:
+        multi_beta = True
+        if find_betac:
+            a_sat = np.arange(-2., -1.749, 0.0625)
+            #a_sat = np.arange(-2.25, -1.749, 0.125)
+            if (Pe == 1):
+                if (Gamma == 0.5):
+                    a_ = np.arange(-5.25, -4.24, 0.25)
+                elif (Gamma == 1.):
+                    a_ = np.arange(-8.5, -7.49, 0.25)
+            elif (Pe == 3.16227766):
+                if (Gamma == 0.5):
+                    a_ = np.arange(-3.25, -2.24, 0.25)
+                elif (Gamma == 1.):
+                    a_ = np.arange(-4., -2.99, 0.25)
+                elif (Gamma == 2.):
+                    a_ = np.arange(-5.25, -4.24, 0.25)
+                elif (Gamma == 4.):
+                    a_ = np.arange(-7.5, -6.49, 0.25)
+            elif (Pe == 5.623413252):
+                if (Gamma == 0.5):
+                    a_ = np.arange(-2.75, -2.24, 0.125)
+                elif (Gamma == 1.):
+                    a_ = np.arange(-3., -2.374, 0.125)
+                elif (Gamma == 2.):
+                    a_ = np.arange(-3.5, -2.74, 0.125)
+                elif (Gamma == 4.):
+                    a_ = np.arange(-4.5, -3.49, 0.25)
+            elif (Pe == 10):
+                if (Gamma == 0.5):
+                    a_ = np.arange(-2.75, -1.74, 0.25)
+                elif (Gamma == 1.):
+                    a_ = np.arange(-2.75, -1.99, 0.25)
+                elif (Gamma == 2.):
+                    a_ = np.arange(-3., -1.99, 0.25)
+                elif (Gamma == 4.):
+                    a_ = np.arange(-3.25, -2.24, 0.25)
+            elif (Pe == 17.7827941):
+                if (Gamma == 0.5):
+                    a_ = np.arange(-2.25, -1.749, 0.125)
+                elif (Gamma == 1.):
+                    a_ = np.arange(-2.375, -1.876, 0.125)
+                elif (Gamma == 2.):
+                    a_ = np.arange(-2.5, -1.999, 0.125)
+                elif (Gamma == 4.):
+                    a_ = np.arange(-2.625, -2.124, 0.125)
+            elif (Pe == 31.6227766):
+                if (Gamma == 0.5):
+                    a_ = a_sat
+                elif (Gamma == 1.):
+                    a_ = np.arange(-2.25, -1.749, 0.125)
+                elif (Gamma == 2.):
+                    a_ = np.arange(-2.25, -1.749, 0.125)
+                elif (Gamma == 4.):
+                    a_ = np.arange(-2.25, -1.749, 0.125)
+            elif (Pe == 56.23413252):
+                if (Gamma == 0.5):
+                    a_ = a_sat
+                elif (Gamma == 1.):
+                    a_ = np.arange(-2.125, -1.874, 0.0625)
+                elif (Gamma == 2.):
+                    a_ = np.arange(-2.0625, -1.8124, 0.0625)
+                elif (Gamma == 4.):
+                    a_ = np.arange(-2.25, -1.999, 0.0625)
+            elif (Pe >= 100):
+                a_ = a_sat
+            else:
+                print("not contemplated")
+                exit(0)
+            if tp:
+                a_ += 0.375
+            beta_ = [10**a for a in a_]
+        else:
+            beta_ = [10**a for a in np.arange(-4., -0.99, 1)]
+    else:
+        beta_ = [beta]
+        beta_str = f"_beta_{beta:.10g}"
+        output_image += beta_str
+        
     output_image += ".pdf"
     
     io_folder = "results/"
@@ -201,10 +274,13 @@ if __name__ == "__main__":
                 
                 label = "Data"
                 if multi_Pe:
+                    x_variable = "Pe"
                     label += f", Pe = {Pe:.10g}"
                 if multi_beta:
+                    x_variable = "beta"
                     label += rf", $\beta$ = {beta:.10g}"
                 if multi_Gamma:
+                    x_variable = "Gamma"
                     label += rf", $\Gamma$ = {Gamma:.10g}"
                     
                 Pe_str = f"Pe_{Pe:.10g}"
@@ -259,7 +335,7 @@ if __name__ == "__main__":
                         gamma_max = - b**2/(4*a) + c
                         gamma_max_sigma = np.sqrt( a_var * (b**2/(4*a**2))**2 + b_var * (b/(2*a))**2 + c_var )
                         
-                        with open(io_folder + f"_mix/values_vs_beta_different_Pe_{Gamma_str}.txt", 'a') as output_file:
+                        with open(io_folder + f"_mix/values_vs_Pe_different_Gamma_{beta_str}.txt", 'a') as output_file:
                             output_file.write(f"{Pe}\t{Gamma}\t{beta}\t{k_max}\t{k_max_sigma}\t{gamma_max}\t{gamma_max_sigma}\n")
                     
                         ax.plot(k_fit_, [a*k**2 + b*k + c for k in k_fit_], color='black', linestyle='solid')

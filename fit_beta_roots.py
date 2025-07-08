@@ -20,7 +20,7 @@ def quadratic_model(log_beta, a2, b2, c2):
 
 def process_file(folder_path, Gamma):
     # Load data
-    filename = f"values_vs_beta_different_Pe_Gamma_{Gamma:.10g}.txt"
+    filename = f"values_vs_beta_different_Pe_Gamma_{Gamma:.10g}_zoom.txt"
     file_path = folder_path + filename
     df = pd.read_csv(file_path, sep='\t')  # Assuming tab-separated values
     

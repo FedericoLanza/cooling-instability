@@ -25,12 +25,12 @@ def filter_multiples(filename, tolerance=1e-8):
 
 # Example usage
 
-Pe_ = [10000]
-Gamma_ = [4]
-beta_ = [10**a for a in np.arange(-2., -0.99, 0.25)]
+Pe_ = [0.0316227766]
+Gamma_ = [1]
+beta_ = [1e-1]
 for Pe in Pe_:
     for Gamma in Gamma_:
         for beta in beta_:
-            filename = f"results/outppt_Pe_{Pe}_Gamma_{Gamma}_beta_{beta:.10g}/gamma_linear.txt"  # Change this to your actual file path
+            filename = f"results/output_Pe_{Pe:.10g}_Gamma_{Gamma:.10g}_beta_{beta:.10g}/gamma_linear.txt"  # Change this to your actual file path
             filter_multiples(filename)
 

@@ -41,9 +41,9 @@ def read_table(file_path):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
-    parser.add_argument('-Pe', default=100.0, type=float, help='Value for Peclet number')
-    parser.add_argument('-Gamma', default=1.0, type=float, help='Value for heat transfer ratio')
-    parser.add_argument('-beta', default=0.001, type=float, help='Value for viscosity ratio')
+    parser.add_argument('--Pe', default=100.0, type=float, help='Value for Peclet number')
+    parser.add_argument('--Gamma', default=1.0, type=float, help='Value for heat transfer ratio')
+    parser.add_argument('--beta', default=0.001, type=float, help='Value for viscosity ratio')
     parser.add_argument('--tp', action='store_true', help='Flag for analyzing the data coming from linear_model_tp.py instead of linear_model_tu.py')
     
     return parser.parse_args()
@@ -87,8 +87,9 @@ if __name__ == "__main__":
         path_folder += "output_"
     else:
         path_folder += "outppt_"
-    input_folder = path_folder + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
-    output_folder = path_folder + "mix/gamma_linear_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+    #input_folder = path_folder + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
+    input_folder = path_folder + "/"
+    output_folder = path_folder + "mix/"
     
     path_gamma_full = os.path.join(input_folder, file_gamma_full)
     path_gamma_linear = os.path.join(input_folder, file_gamma_linear)

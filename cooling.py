@@ -16,15 +16,15 @@ from utils import get_next_subfolder, mpi_comm, mpi_rank, mpi_size
 parser = argparse.ArgumentParser(description='Process some parameters.')
 
 # Define the command-line arguments
-parser.add_argument('--Pe', type=float, help='Value for Peclet number')
-parser.add_argument('--Gamma', type=float, help='Value for heat transfer ratio')
-parser.add_argument('--beta', type=float, help='Value for viscosity ratio')
-parser.add_argument('--ueps', type=float, help='Value for amplitude of the perturbation')
-parser.add_argument('--Ly', type=float, help='Value for wavelength')
-parser.add_argument('--Lx', type=float, help='Value for system size')
-parser.add_argument('--dt', type=float, help='Value for time interval')
-parser.add_argument('--t_pert', type=float, help='Value for perturbation time')
-parser.add_argument('--t_end', type=float, help='Value for final time')
+parser.add_argument('--Pe', default=100, type=float, help='Value for Peclet number')
+parser.add_argument('--Gamma', default=1, type=float, help='Value for heat transfer ratio')
+parser.add_argument('--beta', default=1e-3, type=float, help='Value for viscosity ratio')
+parser.add_argument('--ueps', default=0.001, type=float, help='Value for amplitude of the perturbation')
+parser.add_argument('--Ly', default=2, type=float, help='Value for wavelength')
+parser.add_argument('--Lx', default=50, type=float, help='Value for system size')
+parser.add_argument('--dt', default=0.005, type=float, help='Value for time interval')
+parser.add_argument('--t_pert', default=0.1, type=float, help='Value for perturbation time')
+parser.add_argument('--t_end', default=20, type=float, help='Value for final time')
 #parser.add_argument('ny', type=float, help='Value for tile density along y')
 #parser.add_argument('rtol', type=float, help='Value for error function')
 parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     if (constDeltaP == True):
         out_dir = "results/constDeltaP_"
     else:
-        out_dir = "results/2"
+        out_dir = "results/"
     out_dir += "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directoty for output
     xdmff_T = dfx.io.XDMFFile(mesh.comm, out_dir + "T.xdmf", "w")
     xdmff_p = dfx.io.XDMFFile(mesh.comm, out_dir + "p.xdmf", "w")

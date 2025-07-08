@@ -1,7 +1,7 @@
 import dolfin as df
 import numpy as np
 import matplotlib.pyplot as plt
-#import seaborn as sns
+import seaborn as sns
 import argparse
 import os
 from mpi4py import MPI
@@ -13,24 +13,6 @@ if mpi_size > 1:
               "simply running the parameter scan in parallel instead.")
     exit()
 
-#plt.rcParams.update({
-#    "text.usetex": False,  # Use LaTeX for proper formatting
-#    "font.family": "serif",  # Match JFM style
-#    "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
-#    "font.size": 25,  # Default text size (JFM uses ~8pt for labels)
-#    "axes.titlesize": 20,  # Title size (slightly larger)
-#    "axes.labelsize": 24,  # Axis labels (JFM ~8pt)
-#    "xtick.labelsize": 20,  # Tick labels
-#    "ytick.labelsize": 20,
-#    "legend.fontsize": 12,  # Legend size
-#    "figure.figsize": (5.5, 3),  # Keep plots compact (JFM prefers small plots)
-#    "lines.linewidth": 1.5,  # Thin lines
-#    "lines.markersize": 8,  # Small but visible markers
-#    "figure.subplot.wspace": 0.35,  # Horizontal spacing
-#    "figure.subplot.bottom": 0.15,  # Space for x-labels
-#    "axes.labelpad": 8, #default is 5
-#})
-
 class Left(df.SubDomain):
     def inside(self, x, on_boundary):
         return on_boundary and x[0] < df.DOLFIN_EPS
@@ -41,28 +23,30 @@ class Right(df.SubDomain):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve the linearised model")
-    parser.add_argument("-Pe", default=1, type=float, help="Peclet number")
-    parser.add_argument("-k", default=1, type=float, help="Wavelength")
-    parser.add_argument("-Gamma", default=1.0, type=float, help="Heat conductivity")
-    parser.add_argument("-beta", default=1e-8, type=float, help="Viscosity ratio")
-    parser.add_argument("-eps", default=1e-3, type=float, help="Perturbation amplide")
-    parser.add_argument("-tpert", default=0.1, type=float, help="Perturbation duration")
-    parser.add_argument("-dt", default=0.005, type=float, help="Timestep")
-    parser.add_argument("-nx", default=1000, type=int, help="Number of mesh points")
-    parser.add_argument("-Lx", default=20.0, type=float, help="System size")
-    parser.add_argument("-tmax", default=10.0, type=float, help="Total time")
+    parser.add_argument("--Pe", default=100, type=float, help="Peclet number")
+    parser.add_argument("--k", default=3.1415926536, type=float, help="Wavelength") #1.5707963268
+    parser.add_argument("--Gamma", default=1.0, type=float, help="Heat conductivity")
+    parser.add_argument("--beta", default=1e-3, type=float, help="Viscosity ratio")
+    parser.add_argument("--eps", default=1e-3, type=float, help="Perturbation amplide")
+    parser.add_argument("--tpert", default=0.1, type=float, help="Perturbation duration")
+    parser.add_argument("--dt", default=0.01, type=float, help="Timestep")
+    parser.add_argument("--nx", default=4000, type=int, help="Number of mesh points")
+    parser.add_argument("--Lx", default=25.0, type=float, help="System size")
+    parser.add_argument("--tmax", default=20.0, type=float, help="Total time")
     parser.add_argument('--plot', action='store_true', help='Flag for plotting the eigenfunctions')
     parser.add_argument('--latex', action='store_true', help='Flag for plotting in LaTeX style')
-    parser.add_argument('--nosavedata', action='store_true', help='Flag for not saving the growth rate in a .txt file')
+    parser.add_argument('--savegamma', action='store_true', help='Flag for saving the growth rate in a .txt file')
+    parser.add_argument('--savexmax', action='store_true', help='Flag for saving xmax in a .txt file')
+    parser.add_argument('--aesthetic', action='store_true', help='Flag for saving data in gamma_linear_plot.txt')
     parser.add_argument('--notaylor', action='store_true', help='Flag for removing Taylor dispersion')
     return parser.parse_args()
 
 if __name__ == "__main__":
 
-    #cmap_space = sns.color_palette("mako", as_cmap=True)
-    #cmap_time = sns.color_palette("rocket", as_cmap=True)
-    cmap_space = plt.cm.cividis
-    cmap_time = plt.cm.cividis
+    cmap_space = sns.color_palette("mako", as_cmap=True)
+    cmap_time = sns.color_palette("rocket", as_cmap=True)
+    #cmap_space = plt.cm.cividis
+    #cmap_time = plt.cm.cividis
     
     args = parse_args()
 
@@ -80,8 +64,29 @@ if __name__ == "__main__":
 
     plot = args.plot
     latex = args.latex
-    nosavedata = args.nosavedata
+    savegamma = args.savegamma
+    savexmax = args.savexmax
+    aesthetic = args.aesthetic
     notaylor = args.notaylor
+    
+    if latex:
+        plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
+        "font.size": 24,  # Default text size (JFM uses ~8pt for labels)
+        "axes.labelsize": 24,  # Axis labels (JFM ~8pt)
+        "xtick.labelsize": 24,  # Tick labels
+        "ytick.labelsize": 24,
+        "legend.fontsize": 12,  # Legend size
+        "figure.figsize": (5.5, 3),  # Keep plots compact (JFM prefers small plots)
+        "lines.linewidth": 1.5,  # Thin lines
+        "lines.markersize": 8,  # Small but visible markers
+        "figure.subplot.wspace": 0.35,  # Horizontal spacing
+        "figure.subplot.bottom": 0.15,  # Space for x-labels
+        "axes.labelpad": 8, #default is 5
+    })
+    
     
     plot_intv = 100
 
@@ -183,14 +188,17 @@ if __name__ == "__main__":
     a, L = df.lhs(F), df.rhs(F)
     
     datamax = []
+    dataxmax = []
     data = []
     
     t = 0.0
     it = 0
     
+    #print(x_values[300:900])
+
     fig, axa = plt.subplots(1, 2, figsize=(15., 5.))
     fig, axb = plt.subplots(1, 2, figsize=(15., 5.))
-        
+    
     while t < tmax:
         print('t = ', t)
         #print('before solving: w_.vector() = ', w_.vector()[:])
@@ -210,6 +218,10 @@ if __name__ == "__main__":
         Tmax = np.max(T_values)
         umax = np.max(u_values)
         datamax.append([t, Tmax, umax]) # collect the (t, Tmax, pmax) values
+        
+        idx = np.abs(T_values - Tmax).argmin()
+        xmax = T_values[idx]
+        dataxmax.append([xmax])
         
         data.append([t])
         for i in list_i:
@@ -243,36 +255,40 @@ if __name__ == "__main__":
     print(f"gamma = {gamma}")
     print(f"gamma_standard_error = {gamma_standard_error}")
     
-    # Write the gamma value in the related file
+    # Write the values in the related files
     
-    if nosavedata == False:
-        Pe_str = f"Pe_{Pe:.10g}"
-        Gamma_str = f"Gamma_{Gamma:.10g}"
-        beta_str = f"beta_{beta:.10g}"
+    Pe_str = f"Pe_{Pe:.10g}"
+    Gamma_str = f"Gamma_{Gamma:.10g}"
+    beta_str = f"beta_{beta:.10g}"
+
+    if savegamma == True:
         output_folder = f"results/output_"
         if notaylor:
             output_folder += "notaylor_"
         output_folder += "_".join([Pe_str, Gamma_str, beta_str]) + "/"
         os.makedirs(output_folder, exist_ok=True)
-        with open(output_folder + "gamma_linear.txt", "a") as file:
+        aesth = "_plot" if aesthetic else ""
+        output_file = output_folder + f"gamma_linear{aesth}.txt"
+        with open(output_file, "a") as file:
             file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
+        
+    if savexmax == True:
+        k_str = f"k_{kk:.10g}"
+        idx = np.abs(T_values - Tmax).argmin()
+        xmax = x_values[idx]
+        with open("results/output_mix/xmax_vs_Pe_" + "_".join([Gamma_str, beta_str, k_str]) + ".txt", "a") as file:
+            file.write(f"{Pe}\t{xmax}\t{Tmax}\n")
     
     # Plot results
     
     if plot:
-        if latex:
-            plt.rcParams.update({
-            "text.usetex": True,
-            "font.family": "serif",
-            "font.serif": ["Times New Roman", "Times", "DejaVu Serif"],
-            "font.size": 12,
-            })
         
         # Plot T_max vs time and the semi-log fit
         
         fig_, ax_ = plt.subplots(1, 1, figsize=(7.5, 5.))
         ax_.plot(datamax[:, 0], datamax[:, 1]) # plot Tmax vs time
-        ax_.plot(datamax[istart//2:9*n_steps//10, 0], 1e-4*np.exp(gamma*datamax[istart//2:9*n_steps//10, 0]), color='black', linestyle='dotted', label=r"fit") # plot fitting line
+        #ax_.plot(datamax[istart//2:9*n_steps//10, 0], 1e-4*np.exp(gamma*datamax[istart//2:9*n_steps//10, 0]), color='black', linestyle='dotted', label=r"fit") # plot fitting line
+        ax_.plot(datamax[istart:, 0], 1e-4*np.exp(gamma*datamax[istart:, 0]), color='black', linestyle='dotted', label=r"fit") # plot fitting line
         ax_.semilogy()
         ax_.set_xlabel(r"$t$")
         ax_.set_ylabel(r"$T_{\rm max}$")
@@ -288,16 +304,21 @@ if __name__ == "__main__":
             x_sample = x_sample_[i]
             axt[0].plot(data[:, 0], data[:, 2*i + 1], label=f"$x={x_sample:1.1f}$", color=color) # plot T(x=x0) vs time
             axt[1].plot(data[:, 0], data[:, 2*i + 2], label=f"$x={x_sample:1.1f}$", color=color) # plot ux(x=x0) vs time
-            n_start = 2*istart//3
-            n_end = 9*n_steps//10
             i += 1
-        axt[0].plot(datamax[n_start:n_end, 0], 5*1e-5*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed') # plot fitting line
-        axt[1].plot(datamax[n_start:n_end, 0], 3*1e-4*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed')
+        n_start = istart//3
+        n_end = 9*n_steps//10
+        axt[0].plot(datamax[n_start:n_end, 0], 1e-4*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed') # plot fitting line
+        axt[1].plot(datamax[n_start:n_end, 0], 1e-3*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed')
+        text_idx = (n_end + n_start)//2
+        axt[0].text(datamax[text_idx, 0], 1e-4*np.exp(gamma*datamax[text_idx, 0]), r"$\propto e^{\gamma t}$", va="bottom", ha="right")
+        axt[1].text(datamax[text_idx, 0], 1e-3*np.exp(gamma*datamax[text_idx, 0]), r"$\propto e^{\gamma t}$", va="bottom", ha="right")
         [axti.semilogy() for axti in axt]
         [axti.set_xlabel(r"$t$") for axti in axt]
-        axt[0].legend(fontsize=12)
-        axt[0].set_ylabel(r"$T_k$")
-        axt[1].set_ylabel(r"$u_k$")
+        #axt[0].legend(fontsize=12)
+        axt[0].set_ylabel(r"$T_k(x,t)$")
+        axt[1].set_ylabel(r"$u_k(x,t)$")
+        axt[0].set_ylim(np.sqrt(10)*1e-7, 200) # for imgs
+        axt[1].set_ylim(np.sqrt(10)*1e-6, 2000) # for imgs
         ylab_xpos_l = axt[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
         ylab_xpos_r = axt[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
         figt.text(ylab_xpos_l + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
@@ -320,30 +341,32 @@ if __name__ == "__main__":
         
         # Plot T/T_max and ux/ux_max vs x
         
-        n_start_x = np.argmin(np.abs(x_values - 22.))
-        n_end_x = np.argmin(np.abs(x_values - 5.)) + 1
-        axb[0].plot(x_values[n_start_x:n_end_x], [100 * np.exp(- Lambda_k * x_) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dashed', label="$\sim e^{-\Lambda*x}$")
-        axb[1].plot(x_values[n_start_x:n_end_x], [250 * (np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dotted', label="$\sim Ae^{-\Lambda*x} + Be^{-k*x}$")
-        #axb[0].set_ylim(3*1e-11, 1e1)
-        #axb[1].set_ylim(8*1e-8, 5)
+        n_start_x = 200
+        n_end_x = 1000
+        axb[0].plot(x_values[n_start_x:n_end_x], [100 * np.exp(-Lambda_k * x_) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dashed', label="$\sim e^{-\Lambda x}$")
+        #axb[1].plot(x_values[n_start_x:n_end_x], [250 * (np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dotted', label="$\sim Ae^{-\Lambda*x} + Be^{-k*x}$")
+        text_idx_x = (n_end_x + n_start_x)//2
+        axb[0].text(x_values[text_idx_x], 100*np.exp(-Lambda_k*x_values[text_idx_x]), r"$\propto e^{-\Lambda x}$", va="bottom", ha="left")
+        axb[0].set_ylim(3*1e-10, 1e1) # for imgs
+        axb[1].set_ylim(8*1e-7, 5) # for imgs
         ylab_xpos_l_b = axb[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
         ylab_xpos_r_b = axb[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
         fig.text(ylab_xpos_l_b + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
         fig.text(ylab_xpos_r_b + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
         [axbi.set_xlabel(r"$x$") for axbi in axb]
-        axb[0].set_ylabel(r"$T_k(x)/T_{\max}$")
-        axb[1].set_ylabel(r"$u_k(x)/u_{\max}$")
-        #for axi in axb:
-        #    xmin, xmax = 0, 20
-        #    padding = 0.05 * (xmax - xmin)  # 5% padding
-        #    axi.set_xlim(xmin - padding, xmax + padding)
-        axb[0].legend()
+        axb[0].set_ylabel(r"$T_k(x,t)/T_{\max}(t)$")
+        axb[1].set_ylabel(r"$u_k(x,t)/u_{\max}(t)$")
+        for axi in axb: # for imgs
+            xmin, xmax = 0, 20
+            padding = 0.05 * (xmax - xmin)  # 5% padding
+            axi.set_xlim(xmin - padding, xmax + padding)
+        #axb[0].legend()
         axb[0].semilogy()
         axb[1].semilogy()
         
         outpute_imgs_folder = "results/imgs"
-        #fig.savefig(outpute_imgs_folder + "/T_and_u_vs_x.pdf", dpi=600, bbox_inches="tight")
+        fig.savefig(outpute_imgs_folder + "/T_and_u_vs_x.pdf", dpi=600, bbox_inches="tight")
         #fig_.savefig(outpute_imgs_folder + "/Tmax_vs_t.pdf", dpi=600, bbox_inches="tight")
-        #figt.savefig(outpute_imgs_folder + "/T_and_u_vs_t.pdf", dpi=600, bbox_inches="tight")
+        figt.savefig(outpute_imgs_folder + "/T_and_u_vs_t.pdf", dpi=600, bbox_inches="tight")
         
         plt.show()

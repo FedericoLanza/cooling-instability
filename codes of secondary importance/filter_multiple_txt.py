@@ -1,6 +1,6 @@
 import numpy as np
 
-def filter_multiples(filename, tolerance=1e-8):
+def filter_multiples(filename, tolerance=1e-6):
     with open(filename, 'r') as f:
         lines = f.readlines()
     

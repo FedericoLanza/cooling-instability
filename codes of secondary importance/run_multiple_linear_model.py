@@ -1,7 +1,20 @@
 import argparse
-import os
 import math
+import multiprocessing as mp
 import numpy as np
+import os
+
+try:
+    from mpi4py import MPI
+    rank = MPI.COMM_WORLD.Get_rank()
+    size = MPI.COMM_WORLD.Get_size()
+except Exception:
+    rank, size = 0, 1
+
+if rank == 0:
+    print(f"[Diag] SLURM_NTASKS={os.getenv('SLURM_NTASKS')}, "
+          f"SLURM_CPUS_PER_TASK={os.getenv('SLURM_CPUS_PER_TASK')}, "
+          f"cpu_count={mp.cpu_count()}, MPI_size={size}")
 
 def find_value_in_first_column_for_max_in_second(filename):
     with open(filename, 'r') as file:
@@ -25,13 +38,10 @@ def find_value_in_first_column_for_max_in_second(filename):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
-    parser.add_argument('--Pe', default=100, type=float, help="Peclet number")
-    parser.add_argument('--Gamma', default=1, type=float, help="Heat conductivity")
+    parser.add_argument('--Pe', default=1000, type=float, help="Peclet number")
+    parser.add_argument('--Gamma', default=1e-5, type=float, help="Heat conductivity")
     parser.add_argument('--beta', default=1e-3, type=float, help="Viscosity ratio")
-    parser.add_argument('--eps', default=1e-3, type=float, help="Perturbation amplide")
-    parser.add_argument('--tpert', default=0.1, type=float, help="Perturbation duration")
-    parser.add_argument('--dt', default=0.005, type=float, help="Timestep")
-    parser.add_argument('--tmax', default=25.0, type=float, help="Total time")
+    parser.add_argument('--eps', default=1e-3, type=float, help="Perturbation amplitude")
     parser.add_argument('--tp', action='store_true', help='Flag for analyzing the data coming from linear_model_tp.py instead of linear_model_tu.py')
     parser.add_argument('--find_betac', action='store_true', help='Flag for generating data for finding beta critical')
     parser.add_argument('--aesthetic', action='store_true', help='Flag for generating data for the countor plot to present in the article')
@@ -42,18 +52,12 @@ if __name__ == "__main__":
 
     args = parse_args() # object containing the values of the parsed argument
     
+    eps = args.eps
     tp = args.tp
     find_betac = args.find_betac
     aesthetic = args.aesthetic
     savexmax = args.savexmax
-    
-    dt = args.dt
-    tmax = args.tmax
-    eps = args.eps
-    tpert = args.tpert
-    
-    Pe = args.Pe
-    Gamma = args.Gamma
+
     u0 = 1.
     
     #Pe_all = np.array([10**a for a in np.arange(0., 5., 0.5)])
@@ -132,12 +136,17 @@ if __name__ == "__main__":
             a_ += 0.375
         beta_ = [10**a for a in a_]
     else:
-        beta_ = [args.beta]
+        #beta_ = [args.beta]
+        beta_ =  [10**a for a in np.arange(-10., -9.99, 0.25)]
     if savexmax:
         Pe_ = Pe_all
     else:
-        Pe_ = [10**a for a in np.arange(3, 4, 0.125)]
-    Gamma_ = [Gamma]
+        Pe_ = [args.Pe]
+        #Pe_ = [10**a for a in np.arange(0.25, 3., 0.5)]
+        #Pe_.remove(1e3)
+    Gamma_ = [args.Gamma]
+    #Gamma_ = [10**a for a in np.arange(-6.5, -4.99, 0.25)]
+    #Gamma_.remove(10**-6.25)
     
     outpvart = []
     Tvar = []
@@ -151,17 +160,29 @@ if __name__ == "__main__":
     # epsilon = np.finfo(float).eps
     
     for Pe in Pe_:
+        #Gamma_ = [0.01/Pe]
         for Gamma in Gamma_:
-        
+            #if Pe*Gamma > 1.5e-2:
+                #continue
+                
             kappa_eff = 1./Pe + 2*Pe/105
             xi = (- u0 + math.sqrt(u0*u0 + 4*kappa_eff*Gamma)) / (2*kappa_eff)
-            
-            Lx = 10./xi
-            nx = max(1000, round(5*Lx))
-            k_step2 = xi/400
+            Lx = 40./Gamma
+            nx = 1000 # change it in case
+
+            tmax = 20/Gamma
+            dt = tmax/1e4
+            tpert = dt*5
             
             for beta in beta_:
-                k_step = k_step2*(-np.log10(beta))
+                psi = -np.log10(beta)
+                if psi < 2.5:
+                    Lx *= 2**(2.5 - psi)
+                    nx *= int(2**(2.5 - psi))
+                k_expected = xi * (-1.7135933925582293 + 2.0663122529310142*psi)
+                if (abs(psi - 1.) < 1e-4):
+                    k_expected *= 5
+                
                 #k_step = 0.0125 # Pe=1, beta=1e-3; 2<Gamma<=4 : k_step=0.0125, 4<Gamma<=8 : k_step=0.00625
                 if savexmax:
                     k = 1.
@@ -183,14 +204,26 @@ if __name__ == "__main__":
                     file_path = folder_name + "gamma_linear_plot.txt"
                 else:
                     file_path = folder_name + "gamma_linear.txt"
-                if os.path.isfile(file_path) == False:
+                if os.path.isfile(file_path) == False: # if the file does not exist
                     if os.path.exists(folder_name) == False:
                         os.mkdir(folder_name) # create folder where to save data (if it does not exist yet)
                     if aesthetic:
-                        k_ = np.arange(0., 6.01, 0.1)
+                        k_ = np.arange(0, 2.03e-4, 2e-6)
                         aesth = " --aesthetic"
                     else:
-                        k_ = np.arange(0., 41*k_step, k_step)
+                        k_step = k_expected / 25
+                        if (abs(psi - 1.5) < 1e-4):
+                            k_center = 1.25*k_expected
+                        elif (abs(psi - 1.25) < 1e-4):
+                            k_center = 1.5*k_expected
+                        elif (abs(psi - 1.) < 1e-4):
+                            k_center = 1.7*k_expected
+                        else:
+                            k_center = k_expected
+                        k_left = k_center - 13*k_step if Pe < 10 else k_center - 5*k_step
+                        k_right = k_center - k_step if Pe < 10 else k_center + 3*k_step
+                        
+                        k_ = np.arange(k_left, k_right, k_step)
                         aesth = ""
                     for k in k_:
                         # Construct the command to be executed
@@ -201,18 +234,21 @@ if __name__ == "__main__":
                     
                         # Execute the command
                         os.system(command_linear_model)
-                else:
-                    k_max = find_value_in_first_column_for_max_in_second(file_path)
-                    print("k_max = ", k_max)
-                    k_step_small = k_step/25
+                else: # if the file exists instead
+                    #continue
+                    k_step = k_expected / 5
+                    #k_max = find_value_in_first_column_for_max_in_second(file_path)
+                    #print("k_max = ", k_max)
                     if aesthetic:
-                        k_ = np.arange(0.05, 5.5, 0.1)
+                        k_ = [a for a in np.arange(5.02e-4, 7.99e-4, 2e-6)]
                         aesth = " --aesthetic"
                     else:
-                        k_ = np.arange(max(k_max - 10*k_step_small, k_step_small) , k_max + 11*k_step_small, k_step_small)
-                        #k_ = np.arange(41*k_step, 51*k_step, k_step)
+                        k_ = np.arange(k_max - 3*k_step, k_max, k_step)
                         aesth = ""
                     for k in k_:
+                        for nok in np.arange(5.2e-4, 8e-4, 2e-5):
+                                if abs(k - nok) < 1e-4:
+                                    continue
                         # Construct the command to be executed
                         command_linear_model = f"python3 linear_model_" + Tvar + f".py --Pe {Pe} --k {k} --Gamma {Gamma} --beta {beta} --eps {eps} --tpert {tpert} --dt {dt} --nx {nx} --Lx {Lx} --tmax {tmax} --savegamma{aesth}"
                 

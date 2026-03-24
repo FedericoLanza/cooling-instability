@@ -27,6 +27,7 @@ def find_min_spacing(filename, tolerance=1e-6):
 def read_table_all_values(file_path):
     x = []
     y = []
+    ysigma = []
     with open(file_path, 'r') as file:
         # Skip the first line (the header)
         next(file)
@@ -39,8 +40,9 @@ def read_table_all_values(file_path):
             # Convert to integers (or floats if needed) and append to respective lists
             x.append(float(values[0]))
             y.append(float(values[1]))
+            ysigma.append(float(values[2]))
             
-    return x, y
+    return x, y, ysigma
 
 
 def read_table_const_spacing(file_path, spacing, tolerance=1e-6):
@@ -92,7 +94,7 @@ def parse_args():
     parser.add_argument('--tp', action='store_true', help='Flag for analyzing the data coming from linear_model_tp.py instead of linear_model_tu.py')
     parser.add_argument('--nofit', action='store_true', help='Flag for choosing whether to fit the points around the maximum')
     parser.add_argument('--both', action='store_true', help='Flag for plotting both data from Tp and Tu')
-    parser.add_argument('--find_betac', action='store_true', help='Flag for plotting both data from Tp and Tu')
+    parser.add_argument('--find_betac', action='store_true', help='Flag for plotting data for finding betac')
     parser.add_argument('--latex', action='store_true', help='Flag for plotting in LaTeX style')
     parser.add_argument('--aesthetic', action='store_true', help='Flag for generating plots to present in the article')
     
@@ -140,19 +142,19 @@ if __name__ == "__main__":
     
     if Pe == None:
         multi_Pe = True
-        Pe_ = [10**a for a in np.arange(0, 4.01, 1)]
+        Pe_ = [10**a for a in np.arange(1.25, 3.01, 0.5)]
     else:
         Pe_ = [Pe]
-        Pe_str = f"_Pe_{Pe:.10g}"
-        output_image += Pe_str
+        Pe_str_out = f"_Pe_{Pe:.10g}"
+        output_image += Pe_str_out
         
     if Gamma == None:
         multi_Gamma = True
-        Gamma_ = [2**a for a in np.arange(-1., 2.01, 1)]
+        #Gamma_ = [10**a for a in np.arange(-6.5, -4.5, 0.25)]
     else:
         Gamma_ = [Gamma]
-        Gamma_str = f"_Gamma_{Gamma:.10g}"
-        output_image += Gamma_str
+        Gamma_str_out = f"_Gamma_{Gamma:.10g}"
+        output_image += Gamma_str_out
     
     if beta == None:
         multi_beta = True
@@ -227,11 +229,12 @@ if __name__ == "__main__":
                 a_ += 0.375
             beta_ = [10**a for a in a_]
         else:
-            beta_ = [10**a for a in np.arange(-4., -0.99, 1)]
+            beta_ = [10**a for a in np.arange(-5., -2.99, 0.25)]
+            #beta_ = [10**(-2.5)]
     else:
         beta_ = [beta]
-        beta_str = f"_beta_{beta:.10g}"
-        output_image += beta_str
+        beta_str_out = f"_beta_{beta:.10g}"
+        output_image += beta_str_out
         
     output_image += ".pdf"
     
@@ -261,11 +264,41 @@ if __name__ == "__main__":
     
     fig, ax = plt.subplots(1, 1)
     
+    if False:
+        # [-5, -2.25, step=0.25], quadratic fit for gamma
+        c_gamma = 0.01169361417
+        a_gamma = -0.5552080655
+        b_gamma = -2.701975883
+        a_k = -0.8856475586
+        b_k = -1.60735377
+        c_k = 0
+        c_gamma_err = 0.0001988853709
+        a_gamma_err = 0.003222716832
+        b_gamma_err = 0.01243252889
+        a_k_err = 0.0009175867527
+        b_k_err = 0.007308784492
+        c_k_err = 0
+        cov_ab_gamma = 6.50484e-06
+        cov_ab_k = 1.49779e-05
+    else:
+        a_gamma = -0.7435226754
+        b_gamma = -3.414410586
+        c_gamma = 0
+        a_k = -0.8856475586
+        b_k = -1.60735377
+        a_gamma_err = 0.002099624492
+        b_gamma_err = 0.0163571008
+        a_k_err = 0.0009175867527
+        b_k_err = 0.007308784492
+        cov_ab_gamma = 6.50484e-06
+        cov_ab_k = 1.49779e-05
+    
     for Pe in Pe_:
         for beta in beta_:
+            psi = - math.log(beta)
+            Gamma_ = [0.01/Pe]
             for Gamma in Gamma_:
-            
-                psi = - math.log(beta)
+                print("psi = ", psi)
                 kappa = 1./Pe
                 kappa_parallel = 2*Pe*u0*u0/105
                 kappa_eff = kappa + kappa_parallel # effective constant diffusion for the base state
@@ -307,19 +340,29 @@ if __name__ == "__main__":
                     
                     # Plot the dispersion relationship for this combination of parameters
                     
-                    k_linear_, gamma_linear_ = read_table_all_values(path_gamma_linear)
-                    ax.scatter(k_linear_, gamma_linear_, label=label) # Plot gamma vs k from linear stability analysis
+                    k_linear_, gamma_linear_, gamma_linear_sigma_ = read_table_all_values(path_gamma_linear)
+                    
+                    if aesthetic:
+                        sum_k = np.float64(-a_k*psi + b_k)
+                        sum_gamma = np.float64(-a_gamma*psi + b_gamma + c_gamma*psi**2)
+                        k_linear_resc_ = k_linear_/(Gamma * sum_k)
+                        gamma_linear_resc_ = gamma_linear_/(Gamma * sum_gamma)
+                        ax.scatter(k_linear_resc_, gamma_linear_resc_, label=label)
+                    else:
+                        ax.errorbar(k_linear_, gamma_linear_, yerr=gamma_linear_sigma_, fmt='o', capsize=3, label=label)
                     
                     # Plot an horizontal line for gamma = 0
-
-                    max_k = max(k_linear_) if max(k_linear_) > max_k else max_k
-                    k_ = np.arange(0., max_k + 0.001, 0.001)
-                    ax.plot(k_, [0 for k in k_], color='black', linestyle='dashed')
+                    ax.axhline(y=0., color='black', linestyle='--', linewidth=2)
                     
                     if nofit == False:
-                        spacing = find_min_spacing(path_gamma_linear)
-                        k_fit_, gamma_fit_ = read_table_const_spacing(path_gamma_linear, spacing)
+                        #spacing = find_min_spacing(path_gamma_linear)
+                        #k_fit_, gamma_fit_ = read_table_const_spacing(path_gamma_linear, spacing)
                     
+                        max_pos = np.argmax(gamma_linear_)
+                        k_fit_, gamma_fit_ = k_linear_[max_pos-3:max_pos+4], gamma_linear_[max_pos-3:max_pos+4]
+                    
+                        k_plot_ = np.linspace(min(k_fit_), max(k_fit_), 50)
+                        
                         #print("k_fit_ = ", k_fit_)
                         #print("gamma_fit_ = ", gamma_fit_)
                         
@@ -333,12 +376,15 @@ if __name__ == "__main__":
                         k_max = - b/(2*a)
                         k_max_sigma = np.sqrt( a_var * (b/(2*a**2))**2 + b_var * (1/(2*a))**2 )
                         gamma_max = - b**2/(4*a) + c
-                        gamma_max_sigma = np.sqrt( a_var * (b**2/(4*a**2))**2 + b_var * (b/(2*a))**2 + c_var )
+                        gamma_max_sigma = np.sqrt( a_var * (b**2/(4*a**2))**2 + b_var * (b/(2*a))**2 + c_var)
                         
-                        with open(io_folder + f"_mix/values_vs_Pe_different_Gamma_{beta_str}.txt", 'a') as output_file:
+                        print('gamma_max = ', gamma_max)
+                        print('gamma_max_sigma = ', gamma_max_sigma)
+                        
+                        with open(io_folder + f"_mix/values_vs_Pe_different_beta_Gamma_123.txt", 'a') as output_file:
                             output_file.write(f"{Pe}\t{Gamma}\t{beta}\t{k_max}\t{k_max_sigma}\t{gamma_max}\t{gamma_max_sigma}\n")
                     
-                        ax.plot(k_fit_, [a*k**2 + b*k + c for k in k_fit_], color='black', linestyle='solid')
+                        ax.plot(k_plot_, [a*k**2 + b*k + c for k in k_plot_], color='black', linestyle='solid')
                 
                 if both == True:
                     input_folder_2 = io_folder_2 + "_" + "_".join([Pe_str, Gamma_str, beta_str]) + "/"
@@ -349,8 +395,13 @@ if __name__ == "__main__":
                         
                 #ax.axvline(xi, color='black', linestyle='dotted', label="xi") # plot value of xi
     
-    ax.set_xlabel(r"$k$")
-    ax.set_ylabel(r"$\gamma$")
+    
+    if aesthetic:
+        ax.set_xlabel(r"$k/(\Gamma(a_{k}\log\beta + b_{k}))$")
+        ax.set_ylabel(r"$\gamma/(\Gamma(a_{\gamma}\log\beta + b_{\gamma}))$")
+    else:
+        ax.set_xlabel(r"$k$")
+        ax.set_ylabel(r"$\gamma$")
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.legend()
     
@@ -362,5 +413,5 @@ if __name__ == "__main__":
         "font.size": 12,
         })
     
-    fig.savefig(output_folder + output_image, dpi=300)
+    #fig.savefig(output_folder + output_image, dpi=300)
     plt.show()

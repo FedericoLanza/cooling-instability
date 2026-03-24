@@ -21,7 +21,7 @@ def parse_args():
     return parser.parse_args()
     
 def create_script(Pe, Gamma, beta, eps, tpert, dt, tmax, tp, find_betac, aesthetic):
-    command_line = f"python3 run_multiple_linear_model.py --Pe {Pe:.10g} --Gamma {Gamma:.10g} --beta {beta:.10g} --eps {eps} --tpert {tpert} --dt {dt} --tmax {tmax}"
+    command_line = f"python3 run_multiple_linear_model.py --Pe {Pe:.10g} --Gamma {Gamma:.10g} --beta {beta:.10g} --eps {eps}"
     # command_line = f"python3 run_multiple_linear_model.py -Pe {Pe} -Gamma {Gamma} -eps {eps} -tpert {tpert} -dt {dt} -nx {nx} -Lx {Lx} -tmax {tmax}"
     
     tvar = []
@@ -42,17 +42,23 @@ def create_script(Pe, Gamma, beta, eps, tpert, dt, tmax, tp, find_betac, aesthet
         command_line += " --aesthetic"
         aestheticvar = "_aesthetic"
     
-    filename = f"run_multiple_linear_model_{tvar}_Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_eps_{eps}_tpert_{tpert}_dt_{dt}_tmax_{tmax}{findbetacvar}{aestheticvar}.sh"
+    filename = f"run_multiple_linear_model_{tvar}_Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_eps_{eps}{findbetacvar}{aestheticvar}.sh"
     script = f"""#!/bin/bash
 
 # Job name:
 #SBATCH --job-name=lin_{tvar}
 # Slurm output file:
-#SBATCH --output=run_multiple_linear_model_{tvar}_Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_eps_{eps}_tpert_{tpert}_dt_{dt}_tmax_{tmax}{findbetacvar}{aestheticvar}.out
+#SBATCH --output=run_multiple_linear_model_{tvar}_Pe_{Pe}_Gamma_{Gamma}_beta_{beta}_eps_{eps}{findbetacvar}{aestheticvar}.out
 # Number of tasks (processors):
 #SBATCH --ntasks=1
 # Memory (different units can be specified using the suffix K|M|G|T):
-#SBATCH --mem=4G
+#SBATCH --mem=25G
+
+# Avoid oversubscription by setting threads to 1 for all relevant libraries
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
 
 # Activate FEniCS Conda environment
 #source ~/.bashrc  # Ensure Conda is available in batch jobs
@@ -90,10 +96,6 @@ if __name__ == "__main__":
     multi = args.multi
     
     if multi == False:
-    
-        Pe = args.Pe
-        Gamma = args.Gamma
-        beta = args.beta
         
         # create file .sh
         filename = create_script(Pe, Gamma, beta, eps, tpert, dt, tmax, tp, find_betac, aesthetic)
@@ -103,7 +105,7 @@ if __name__ == "__main__":
         
     else:
         if (Pe == None and Gamma != None and beta != None):
-            Pe_ = [10**a for a in np.arange(0.125, 5., 0.25)]
+            Pe_ = [10**a for a in np.arange(0.875, 5.5, 0.125)]
             Gamma_ = [Gamma]
             beta_ = [beta]
         elif (Pe != None and Gamma == None and beta != None) :
@@ -113,22 +115,29 @@ if __name__ == "__main__":
         elif (Pe != None and Gamma != None and beta == None):
             Pe_ = [Pe]
             Gamma_ = [Gamma]
-            beta_ = [10**a for a in np.arange(-4.875, -1., 0.25)]
+            beta_ = [10**a for a in np.arange(-5.125, -0.874, 0.125)]
         else:
-            print('Please specify exactly two parameters out of three.')
-            exit(0)
+            #print('Please specify exactly two parameters out of three.')
+            #exit(0)
+            Pe_ = [10**a for a in np.arange(2., 6.01, 1.)]
+            Gamma_ = [10**a for a in np.arange(-3., -7.01, -1.)]
+            beta_ = [10**a for a in np.arange(-3., -5.01, -0.5)]
         
         for Pe in Pe_:
             for Gamma in Gamma_:
                 for beta in beta_:
-                    
+                
+                    if Pe*Gamma > 0.1:
+                        continue
+                        
+                    print('Pe = ', Pe, ', Gamma = ', Gamma, ', beta = ', beta)
                     # create file .sh
                     filename = create_script(Pe, Gamma, beta, eps, tpert, dt, tmax, tp, find_betac, aesthetic)
-                        
+                    
                     # submit the job
                     subprocess.run(["sbatch", filename])
                     
                     # wait one second
-                    time.sleep(0.25)
+                    #time.sleep(0.1)
                 
                 

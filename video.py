@@ -5,6 +5,7 @@ import meshio
 from utils import parse_xdmf
 import h5py
 import numpy as np
+import seaborn as sns
 import matplotlib as mpl
 #mpl.rcParams['animation.ffmpeg_path'] = '/path/to/ffmpeg'  # Set this to the actual path of ffmpeg
 import matplotlib.pyplot as plt
@@ -21,19 +22,25 @@ from scipy.interpolate import RectBivariateSpline
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process some parameters.')
-    parser.add_argument('Pe', type=float, help='Value for Peclet number')
-    parser.add_argument('Gamma', type=float, help='Value for heat transfer ratio')
-    parser.add_argument('beta', type=float, help='Value for viscosity ratio')
-    parser.add_argument('ueps', type=float, help='Value for amplitude of the perturbation')
-    parser.add_argument('Ly', type=float, help='Value for wavelength')
-    parser.add_argument('Lx', type=float, help='Value for system size')
-    #parser.add_argument('ny', type=float, help='Value for tile density along y')
+    parser.add_argument('--Pe', default=1000, type=float, help='Value for Peclet number')
+    parser.add_argument('--Gamma', default=1e-5, type=float, help='Value for heat transfer ratio')
+    parser.add_argument('--beta', default=1e-3, type=float, help='Value for viscosity ratio')
+    parser.add_argument('--ueps', default=0.001, type=float, help='Value for amplitude of the perturbation')
+    parser.add_argument('--Ly', default=2000000, type=float, help='Value for wavelength')
+    parser.add_argument('--Lx', default=800000, type=float, help='Value for system size')
+    parser.add_argument('--dt', default=200, type=float, help='Value for time interval')
+    parser.add_argument('--ny', default=2000, type=float, help='Value for tile density along y')
+    parser.add_argument('--nx', default=100, type=float, help='Value for tile density along x')
     #parser.add_argument('rtol', type=float, help='Value for error function')
     parser.add_argument('--rnd',action='store_true', help='Flag for random velocity at inlet')
+    parser.add_argument('--Tpert',action='store_true', help='Flag for temperature perturbation')
     parser.add_argument('--holdpert',action='store_true', help='Flag for maintaining the perturbation at all times')
+    parser.add_argument('--twoperiods',action='store_true', help='Flag for performing simulations with 2 wavelenghts per spatial period')
     return parser.parse_args()
 
 if __name__ == "__main__":
+
+    cmap_space = sns.color_palette("mako", as_cmap=True)
 
     # Parse the command-line arguments
     args = parse_args() # object containing the values of the parsed argument
@@ -55,12 +62,16 @@ if __name__ == "__main__":
     lambda_ = (- u0 + math.sqrt(u0*u0 + 4*Deff*Gamma)) / (2*Deff) # decay constant for the base state
     
     # resolution parameters
-    #ny = args.ny
+    dt = args.dt
+    ny = args.ny
+    nx = args.nx
     #rtol = args.rtol
     
     # flags
     rnd = args.rnd
+    Tpert = args.Tpert
     holdpert = args.holdpert
+    twoperiods = args.twoperiods
     
     Pe_str = f"Pe_{Pe:.10g}"
     Gamma_str = f"Gamma_{Gamma:.10g}"
@@ -68,13 +79,19 @@ if __name__ == "__main__":
     ueps_str = f"ueps_{ueps:.10g}"
     Ly_str = f"Ly_{Ly:.10g}"
     Lx_str = f"Lx_{Lx:.10g}"
-    #ny_str = f"ny_{ny:.10g}"
+    dt_str = f"dt_{dt:.10g}"
+    ny_str = f"ny_{ny:.10g}"
+    nx_str = f"nx_{nx:.10g}"
     #rtol_str = f"rtol_{rtol:.10g}"
     rnd_str = f"rnd_{rnd}"
+    Tpert_str = f"Tpert_{Tpert}"
     holdpert_str = f"holdpert_{holdpert}"
     
-    #out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str, ny_str, rtol_str]) + "_2periods/" # directory for output
-    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directory for output
+    #out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, ueps_str, Ly_str, Lx_str, rnd_str, holdpert_str]) + "/" # directory for output
+    out_dir = "results/" + "_".join([Pe_str, Gamma_str, beta_str, Ly_str, Lx_str, dt_str, ny_str, nx_str, rnd_str, Tpert_str, holdpert_str]) # directory for output
+    if twoperiods:
+        out_dir += "_twoperiods"
+    out_dir += "/"
     
     # Create paths to the targeted files
     Tfile = os.path.join(out_dir, "T.xdmf")
@@ -113,14 +130,14 @@ if __name__ == "__main__":
     y = nodes[:, 1]
     x_sort = np.unique(x)
     y_sort = np.unique(y)
-    nx = len(x_sort)
-    ny = len(y_sort)
+    Nx = len(x_sort) - 1
+    Ny = len(y_sort) - 1
     X, Y = np.meshgrid(x_sort, y_sort)
     
     x_min = min(nodes[:, 0])
     x_max = max(nodes[:, 0])
-    nx_high_res = 400
-    x_high_res = np.linspace(x_min, x_max, nx_high_res)
+    Nx_high_res = 400
+    x_high_res = np.linspace(x_min, x_max, Nx_high_res)
     X_high_res, Y_high_res = np.meshgrid(x_high_res, y_sort)
     
     # Sort indices of nodes array
@@ -150,13 +167,13 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((ny, nx))
+        T_r = T_sorted.reshape((Ny + 1, Nx + 1))
         
         dset_p = dsets_p[t] # p-dictionary at time t
         with h5py.File(dset_p[0], "r") as h5f:
             p_[:] = h5f[dset_p[1]][:, 0] # takes values of p from the p-dictionary
         p_sorted = p_[sort_indices]
-        p_r = p_sorted.reshape((ny, nx))
+        p_r = p_sorted.reshape((Ny + 1, Nx + 1))
         
         grad_py, grad_px = np.gradient(p_r, np.unique(y), np.unique(x))
         ux_r = -beta**-T_r * grad_px
@@ -176,7 +193,7 @@ if __name__ == "__main__":
     axT.set_xlabel("$x$", fontsize=16)
     axT.set_ylabel("$y$", fontsize=16)
     #axT.set_title("$T(x,y)$")
-    im_T = axT.pcolormesh(X_high_res, Y_high_res, np.zeros_like(X_high_res), vmin=0., vmax=1.)
+    im_T = axT.pcolormesh(X_high_res, Y_high_res, np.zeros_like(X_high_res), vmin=0., vmax=1., cmap='plasma', alpha=0.9)
     cb_T = plt.colorbar(im_T, ax=axT) # colorbar
     cb_T.ax.tick_params(labelsize=14)
     
@@ -213,13 +230,13 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((ny, nx))
+        T_r = T_sorted.reshape((Ny + 1, Nx + 1))
         
         # Interpolate the data to higher resolution using RectBivariateSpline
         f = RectBivariateSpline(y_sort, x_sort, T_r)
         T_r_high_res = f(Y_high_res[:, 0], X_high_res[0, :])
         
-        im_T = axT.pcolormesh(X_high_res, Y_high_res, T_r_high_res, vmin=0., vmax=1.) # plot of colormap of T
+        im_T = axT.pcolormesh(X_high_res, Y_high_res, T_r_high_res, vmin=0., vmax=1., cmap='plasma', alpha=0.9) # plot of colormap of T
         axT.tick_params(axis='both', which='major', labelsize=14)
         
         general_title = "$T(x,y)$" + f"$t = {t:1.2f}$"
@@ -252,13 +269,13 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((ny, nx))
+        T_r = T_sorted.reshape((Ny + 1, Nx + 1))
         
         dset_p = dsets_p[t] # p-dictionary at time t
         with h5py.File(dset_p[0], "r") as h5f:
             p_[:] = h5f[dset_p[1]][:, 0] # takes values of p from the p-dictionary
         p_sorted = p_[sort_indices]
-        p_r = p_sorted.reshape((ny, nx))
+        p_r = p_sorted.reshape((Ny + 1, Nx + 1))
         
         grad_py, grad_px = np.gradient(p_r, y_sort, x_sort)
         ux_r = -beta**-T_r * grad_px
@@ -298,13 +315,13 @@ if __name__ == "__main__":
         with h5py.File(dset_T[0], "r") as h5f:
             T_[:] = h5f[dset_T[1]][:, 0]  # takes values of T from the T-dictionary
         T_sorted = T_[sort_indices]
-        T_r = T_sorted.reshape((ny, nx))
+        T_r = T_sorted.reshape((Ny + 1, Nx + 1))
         
         dset_p = dsets_p[t] # p-dictionary at time t
         with h5py.File(dset_p[0], "r") as h5f:
             p_[:] = h5f[dset_p[1]][:, 0] # takes values of p from the p-dictionary
         p_sorted = p_[sort_indices]
-        p_r = p_sorted.reshape((ny, nx))
+        p_r = p_sorted.reshape((Ny + 1, Nx + 1))
         
         grad_py, grad_px = np.gradient(p_r, y_sort, x_sort)
         uy_r = -beta**-T_r * grad_py
@@ -331,7 +348,7 @@ if __name__ == "__main__":
     print('making video for T')
     animation_T = animation.FuncAnimation(figT, update_T, frames=num_frames, blit=False)
     Writer = animation.writers['ffmpeg']
-    writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=1800)
+    writer = Writer(fps=50, metadata=dict(artist='Me'), bitrate=1800)
     animation_T.save(out_dir + '/T.mp4', writer=writer)
     #print('making video for ux')
     #animation_ux = animation.FuncAnimation(figux, update_ux, frames=num_frames, blit=False)

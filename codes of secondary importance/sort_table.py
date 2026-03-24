@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import sys
 
 # Load the table from the .txt file as strings and skip the header
@@ -57,15 +58,34 @@ def sort_and_filter_file(file_path, tol=1e-6):
     save_table(file_path, unique_data, header)
 
 if __name__ == "__main__":
-    # Check if a file path is provided
-    if len(sys.argv) < 2 or len(sys.argv) > 3:
-        print("Usage: python3 sort_table.py path/to/your/file.txt [tolerance]")
-    else:
-        # Get the file path from command-line arguments
-        file_path = sys.argv[1]
-        
-        # Optionally get the tolerance from the command line, or use the default
-        tol = float(sys.argv[2]) if len(sys.argv) == 3 else 1e-6
-        
-        # Sort and filter the file
-        sort_and_filter_file(file_path, tol)
+    Pe_ = [10**a for a in np.arange(3., 3.001, 0.125)]
+    Gamma_ = [10**a for a in np.arange(-5., -4.99, 0.0625)]
+    beta_ = [10**a for a in np.arange(-4.9375, -4.9, 0.125)]
+    for Pe in Pe_:
+        for Gamma in Gamma_:
+            for beta in beta_:
+                print('Pe = ', Pe, 'Gamma = ', Gamma, 'beta = ', beta)
+                start_folder = f"results/output_Pe_{Pe:.10g}_Gamma_{Gamma:.10g}_beta_{beta:.10g}"
+                destination_folder = f"results/output_Pe_{Pe:.10g}_Gamma_{Gamma:.10g}_beta_{beta:.10g}"
+                filename = "gamma_linear_plot.txt"  # Change this to your actual file path
+                start_filepath = start_folder + "/" + filename
+                destination_filepath = destination_folder + "/" + filename
+                
+                if os.path.isfile(start_filepath):
+                    if os.path.exists(destination_folder)==False:
+                        os.mkdir(destination_folder)
+                    data = load_table_as_strings(start_filepath)
+                    sorted_data = sort_table(data)
+                    
+                    if len(data) > 1:
+                        #Move the files from results/results to results
+                        command_line = f"mv results/results/output_Pe_{Pe:.10g}_Gamma_{Gamma:.10g}_beta_{beta:.10g}/gamma_linear_plot.txt " + destination_folder
+                        os.system(command_line)
+                    else:
+                        with open(destination_filepath, "a") as file:
+                            for row in sorted_data:
+                                file.write("\t".join(row) + '\n')
+                    
+                    # Sort and filter the file
+                    sort_and_filter_file(destination_folder + "/" + filename, 1e-6)
+                    print(f"Columns sorted (while filtering duplicates) and file '{filename}' overwritten.")

@@ -1,6 +1,7 @@
 import dolfin as df
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import seaborn as sns
 import argparse
 import os
@@ -23,16 +24,16 @@ class Right(df.SubDomain):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve the linearised model")
-    parser.add_argument("--Pe", default=100, type=float, help="Peclet number")
-    parser.add_argument("--k", default=3.1415926536, type=float, help="Wavelength") #1.5707963268
-    parser.add_argument("--Gamma", default=1.0, type=float, help="Heat conductivity")
+    parser.add_argument("--Pe", default=1e3, type=float, help="Peclet number")
+    parser.add_argument("--k", default=4.4879895051e-05, type=float, help="Wavelength") # 1.5707963268
+    parser.add_argument("--Gamma", default=1e-5, type=float, help="Heat conductivity")
     parser.add_argument("--beta", default=1e-3, type=float, help="Viscosity ratio")
     parser.add_argument("--eps", default=1e-3, type=float, help="Perturbation amplide")
-    parser.add_argument("--tpert", default=0.1, type=float, help="Perturbation duration")
-    parser.add_argument("--dt", default=0.01, type=float, help="Timestep")
-    parser.add_argument("--nx", default=4000, type=int, help="Number of mesh points")
-    parser.add_argument("--Lx", default=25.0, type=float, help="System size")
-    parser.add_argument("--tmax", default=20.0, type=float, help="Total time")
+    parser.add_argument("--tpert", default=1e3, type=float, help="Perturbation duration")
+    parser.add_argument("--dt", default=2e2, type=float, help="Timestep")
+    parser.add_argument("--nx", default=1000, type=int, help="Number of mesh points")
+    parser.add_argument("--Lx", default=1e6, type=float, help="System size")
+    parser.add_argument("--tmax", default=1.2e6, type=float, help="Total time")
     parser.add_argument('--plot', action='store_true', help='Flag for plotting the eigenfunctions')
     parser.add_argument('--latex', action='store_true', help='Flag for plotting in LaTeX style')
     parser.add_argument('--savegamma', action='store_true', help='Flag for saving the growth rate in a .txt file')
@@ -88,7 +89,7 @@ if __name__ == "__main__":
     })
     
     
-    plot_intv = 100
+    plot_intv = 500
 
     #k = df.Constant(2*np.pi/lam)
     k = df.Constant(kk)
@@ -130,7 +131,8 @@ if __name__ == "__main__":
     x_values = x.vector()[:]
     
     list_i = []
-    x_sample_ = [n for n in np.arange(1., 11., 1.)]
+    x_sample_ = [n for n in np.arange(Lx/25, 11*Lx/25, Lx/25)]
+    print(x_sample_)
     len_x_sample_ = len(x_sample_)
     for x_sample in x_sample_:
         i = np.argmin(np.abs(x_values - x_sample))  # Index of the closest value
@@ -242,7 +244,7 @@ if __name__ == "__main__":
     datamax = np.array(datamax)
     data = np.array(data)
     n_steps = len(datamax[:, 0])
-    istart = int(tmax/dt)//2
+    istart = 2*int(tmax/dt)//3
     #print("istart = ", istart)
 
     # Find the growth rate gamma
@@ -251,9 +253,13 @@ if __name__ == "__main__":
     gamma = popt[0]
     gamma_variance = pcov[0, 0]
     gamma_standard_error = np.sqrt(gamma_variance)
+    Tratio = T_values[list_i[-1]]/datamax[-1, 1]
+    uxratio = u_values[list_i[-1]]/datamax[-1, 2]
     
     print(f"gamma = {gamma}")
     print(f"gamma_standard_error = {gamma_standard_error}")
+    print(f"Tratio = {Tratio}")
+    print(f"uxratio = {uxratio}")
     
     # Write the values in the related files
     
@@ -270,7 +276,7 @@ if __name__ == "__main__":
         aesth = "_plot" if aesthetic else ""
         output_file = output_folder + f"gamma_linear{aesth}.txt"
         with open(output_file, "a") as file:
-            file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}")
+            file.write(f"\n{kk}\t{gamma}\t{gamma_standard_error}\t{Tratio}\t{uxratio}")
         
     if savexmax == True:
         k_str = f"k_{kk:.10g}"
@@ -300,29 +306,36 @@ if __name__ == "__main__":
         figt, axt = plt.subplots(1, 2, figsize=(15., 5.))
         i = 0
         while i < len_x_sample_:
-            color = cmap_space(1. - i / len_x_sample_)
+            color = cmap_space(1. - i/len_x_sample_)
             x_sample = x_sample_[i]
             axt[0].plot(data[:, 0], data[:, 2*i + 1], label=f"$x={x_sample:1.1f}$", color=color) # plot T(x=x0) vs time
             axt[1].plot(data[:, 0], data[:, 2*i + 2], label=f"$x={x_sample:1.1f}$", color=color) # plot ux(x=x0) vs time
             i += 1
-        n_start = istart//3
-        n_end = 9*n_steps//10
-        axt[0].plot(datamax[n_start:n_end, 0], 1e-4*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed') # plot fitting line
-        axt[1].plot(datamax[n_start:n_end, 0], 1e-3*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed')
+        n_start = istart//2
+        n_end = 4*n_steps//5
+        aT = 2*1e-5
+        aux = 1e-4
+        axt[0].plot(datamax[n_start:n_end, 0], aT*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed') # plot fitting line
+        axt[1].plot(datamax[n_start:n_end, 0], aux*np.exp(gamma*datamax[n_start:n_end, 0]), color='black', linestyle='dashed')
         text_idx = (n_end + n_start)//2
-        axt[0].text(datamax[text_idx, 0], 1e-4*np.exp(gamma*datamax[text_idx, 0]), r"$\propto e^{\gamma t}$", va="bottom", ha="right")
-        axt[1].text(datamax[text_idx, 0], 1e-3*np.exp(gamma*datamax[text_idx, 0]), r"$\propto e^{\gamma t}$", va="bottom", ha="right")
+        axt[0].text(datamax[text_idx, 0], aT*np.exp(gamma*datamax[text_idx, 0]), r"$\propto e^{\gamma t}$", va="bottom", ha="right")
+        axt[1].text(datamax[text_idx, 0], aux*np.exp(gamma*datamax[text_idx, 0]), r"$\propto e^{\gamma t}$", va="bottom", ha="right")
         [axti.semilogy() for axti in axt]
         [axti.set_xlabel(r"$t$") for axti in axt]
         #axt[0].legend(fontsize=12)
         axt[0].set_ylabel(r"$T_k(x,t)$")
         axt[1].set_ylabel(r"$u_k(x,t)$")
-        axt[0].set_ylim(np.sqrt(10)*1e-7, 200) # for imgs
-        axt[1].set_ylim(np.sqrt(10)*1e-6, 2000) # for imgs
+        #axt[0].set_ylim(np.sqrt(10)*1e-7, 200) # for imgs
+        #axt[1].set_ylim(np.sqrt(10)*1e-6, 2000) # for imgs
         ylab_xpos_l = axt[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
         ylab_xpos_r = axt[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
         figt.text(ylab_xpos_l + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
         figt.text(ylab_xpos_r + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
+        for axi in axt: # for imgs
+            xmin, xmax = 0, 1.1e6
+            padding = 0.05 * (xmax - xmin)  # 5% padding
+            axi.set_xlim(xmin - padding, xmax + padding)
+        
         
         # Plot T and ux vs x
         
@@ -341,28 +354,37 @@ if __name__ == "__main__":
         
         # Plot T/T_max and ux/ux_max vs x
         
-        n_start_x = 200
-        n_end_x = 1000
-        axb[0].plot(x_values[n_start_x:n_end_x], [100 * np.exp(-Lambda_k * x_) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dashed', label="$\sim e^{-\Lambda x}$")
-        #axb[1].plot(x_values[n_start_x:n_end_x], [250 * (np.exp(- Lambda_k * x_) + np.exp(- kk * x_)) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dotted', label="$\sim Ae^{-\Lambda*x} + Be^{-k*x}$")
+        n_start_x = 35
+        n_end_x = 175
+        aLambda = 1e3
+        axb[0].plot(x_values[n_start_x:n_end_x], [aLambda * np.exp(-Lambda_k * x_) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dashed', label="$\sim e^{-\Lambda x}$")
+        axb[1].plot(x_values[n_start_x:n_end_x], [aLambda * (np.exp(- Lambda_k * x_)) for x_ in x_values[n_start_x:n_end_x]], color='black', linestyle='dashed', label="$\sim Ae^{-\Lambda*x} + Be^{-k*x}$")
         text_idx_x = (n_end_x + n_start_x)//2
-        axb[0].text(x_values[text_idx_x], 100*np.exp(-Lambda_k*x_values[text_idx_x]), r"$\propto e^{-\Lambda x}$", va="bottom", ha="left")
-        axb[0].set_ylim(3*1e-10, 1e1) # for imgs
-        axb[1].set_ylim(8*1e-7, 5) # for imgs
+        axb[0].text(x_values[text_idx_x], aLambda *np.exp(-Lambda_k*x_values[text_idx_x]), r"$\propto e^{-\Lambda x}$", va="bottom", ha="left")
+        axb[1].text(x_values[text_idx_x], aLambda * np.exp(-Lambda_k*x_values[text_idx_x]), r"$\propto e^{-\Lambda x}$", va="bottom", ha="left")
+        axb[0].set_ylim(8*1e-21, 1e1) # for imgs
+        axb[1].set_ylim(8*1e-17, 5) # for imgs
         ylab_xpos_l_b = axb[0].yaxis.get_label().get_position()[0]  # horizontal position of y-label
         ylab_xpos_r_b = axb[0].yaxis.get_label().get_position()[1]  # horizontal position of y-label
-        fig.text(ylab_xpos_l_b + 0.075, 0.98, "($a$)", verticalalignment='top', horizontalalignment='right')
-        fig.text(ylab_xpos_r_b + 0.025, 0.98, "($b$)", verticalalignment='top', horizontalalignment='right')
+        fig.text(ylab_xpos_l_b + 0.075, 0.98, "($c$)", verticalalignment='top', horizontalalignment='right')
+        fig.text(ylab_xpos_r_b + 0.025, 0.98, "($d$)", verticalalignment='top', horizontalalignment='right')
         [axbi.set_xlabel(r"$x$") for axbi in axb]
         axb[0].set_ylabel(r"$T_k(x,t)/T_{\max}(t)$")
         axb[1].set_ylabel(r"$u_k(x,t)/u_{\max}(t)$")
         for axi in axb: # for imgs
-            xmin, xmax = 0, 20
+            xmin, xmax = 0, 9e5
             padding = 0.05 * (xmax - xmin)  # 5% padding
             axi.set_xlim(xmin - padding, xmax + padding)
-        #axb[0].legend()
         axb[0].semilogy()
         axb[1].semilogy()
+        
+        # Create a ScalarFormatter
+        formatter = ticker.ScalarFormatter(useOffset=True, useMathText=True)
+        formatter.set_scientific(True)
+        formatter.set_powerlimits((-3, 3)) # Example: scientific notation for exponents outside -3 to 4
+
+        # Apply the formatter to the x-axis
+        [axi.xaxis.set_major_formatter(formatter) for axi in axb]
         
         outpute_imgs_folder = "results/imgs"
         fig.savefig(outpute_imgs_folder + "/T_and_u_vs_x.pdf", dpi=600, bbox_inches="tight")

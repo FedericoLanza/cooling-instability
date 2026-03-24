@@ -1,6 +1,9 @@
 # Ignore the results folder
 /results/
 
+# Ignore the secondarycodes folder
+/secondarycodes/
+
 # Ignore all .sh files
 *.sh
 
